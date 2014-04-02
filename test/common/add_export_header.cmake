@@ -1,0 +1,5 @@
+include(GenerateExportHeader)
+add_compiler_export_flags()
+generate_export_header(${ACME_TARGET_NAME})
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${ACME_TARGET_NAME}_export.h DESTINATION include/${ACME_PACKAGE_NAME_SLASH})
+include_directories(${CMAKE_CURRENT_BINARY_DIR})

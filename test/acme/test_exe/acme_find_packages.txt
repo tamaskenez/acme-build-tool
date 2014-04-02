@@ -1,0 +1,4 @@
+acme_find_package(acme.test_static REQUIRED ALIAS test_static)
+acme_find_package(acme.test_shared REQUIRED ALIAS test_shared)
+acme_find_package(acme.test_build_shared_libs_on REQUIRED ALIAS bslon)
+acme_find_package(acme.test_build_shared_libs_off REQUIRED ALIAS bsloff)

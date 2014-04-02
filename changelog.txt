@@ -1,0 +1,4 @@
+1.0
+	+ auto update from ACME_ROOT	
+	+ default/local/global configs
+	+ full auto testing with script

@@ -1,0 +1,36 @@
+Usage:
+    acme init <path> <options>
+
+<path>
+    The <path> can absolute or relative. If it's relative
+    it can be relative to the current directory or relative to
+    ACME_SOURCE_PREFIX environment variable (if it exists).
+
+<options>
+
+You need to specify exactly one of x, l, s, a or m:
+
+    -x, --exe
+        configure an executable
+    -l, --lib
+        configure a library (shared or static depending on BUILD_SHARED_LIBS)
+    -s, --shared
+        configure a shared library
+    -a, --static
+        configure a static library
+    -m, --module
+        configure a plugin
+
+The package name is a qualified like package name, seperated
+with dots, e.g. 'company.foo.bar'. This will be
+also the installation path of the include files. The default names of
+the executable/library and the CMake package name will be the same.
+The package namespace will also be derived from it: 'company::foo::bar'.
+
+You can omit specifying a package name if the ACME_SOURCE_PREFIX
+environment variable is set and the <path> is below it.
+In that case, the package name will be the relative path from
+ACME_SOURCE_PREFIX
+
+    -p, --package <package-name>
+        dot-separated package name, like company.foo.bar

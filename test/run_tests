@@ -1,0 +1,109 @@
+set -e
+
+export ACME_ROOT_ACTUAL=$(dirname $0)/..
+export ACME_ROOT=$ACME_ROOT_ACTUAL
+
+root=/tmp/acme_test
+buildroot=$root/build
+instroot=$root/inst
+
+
+rm -rf $root
+
+mkdir $root
+cp -r $ACME_ROOT/test/acme $root/acme
+
+export ACME_SOURCE_PREFIX=$root
+
+echo "**** test_standalone functions ****"
+package_slash=acme/test_standalone_functions
+$ACME_ROOT/acme init $root/$package_slash -x
+cmake -H$root/$package_slash -B$root/build/$package_slash
+
+echo "**** test_static ****"
+package_slash=acme/test_static
+$ACME_ROOT/acme init $root/$package_slash -a
+cmake -H$root/$package_slash -B$root/build/$package_slash -DCMAKE_INSTALL_PREFIX=$instroot
+cmake --build $root/build/$package_slash --target INSTALL --config Release
+cmake --build $root/build/$package_slash --target INSTALL --config Debug
+
+echo "**** test_shared ****"
+package_slash=acme/test_shared
+$ACME_ROOT/acme init $root/$package_slash -s
+cat $ACME_ROOT/test/common/add_export_header.cmake >>$root/$package_slash/CMakeLists.txt
+cmake -H$root/$package_slash -B$root/build/$package_slash -DCMAKE_INSTALL_PREFIX=$instroot
+cmake --build $root/build/$package_slash --target INSTALL --config Release
+cmake --build $root/build/$package_slash --target INSTALL --config Debug
+
+echo "**** test_build_shared_libs_off ****"
+package_slash=acme/test_build_shared_libs_off
+$ACME_ROOT/acme init $root/$package_slash -a
+cmake -H$root/$package_slash -B$root/build/$package_slash -DCMAKE_INSTALL_PREFIX=$instroot -DBUILD_SHARED_LIBS=0
+cmake --build $root/build/$package_slash --target INSTALL --config Release
+cmake --build $root/build/$package_slash --target INSTALL --config Debug
+
+echo "**** test_build_shared_libs_on ****"
+package_slash=acme/test_build_shared_libs_on
+$ACME_ROOT/acme init $root/$package_slash -s
+cat $ACME_ROOT/test/common/add_export_header.cmake >>$root/$package_slash/CMakeLists.txt
+cmake -H$root/$package_slash -B$root/build/$package_slash -DCMAKE_INSTALL_PREFIX=$instroot -DBUILD_SHARED_LIBS=1
+cmake --build $root/build/$package_slash --target INSTALL --config Release
+cmake --build $root/build/$package_slash --target INSTALL --config Debug
+
+echo "**** test_exe ****"
+package_slash=acme/test_exe
+$ACME_ROOT/acme init $root/$package_slash -x
+
+# prepare test exe
+mv $root/$package_slash/CMakeLists.txt $root/$package_slash/CMakeLists.txt.orig
+
+afps=`cat $root/$package_slash/acme_find_packages.txt | tr '\r\n' @@`
+sedexpr="s/#.*acme_find_package.*/$afps/"
+sed "$sedexpr" $root/$package_slash/CMakeLists.txt.orig | tr @ '\n' >$root/$package_slash/CMakeLists.txt
+
+cmake -H$root/$package_slash -B$root/build/$package_slash -DCMAKE_INSTALL_PREFIX=$instroot
+cmake --build $root/build/$package_slash --target INSTALL --config Release
+cmake --build $root/build/$package_slash --target INSTALL --config Debug
+
+cd $root/inst/bin
+./acme.test_exe
+echo "acme.test_exe: $?"
+./acme.test_exe_d
+echo "acme.test_exe_d: $?"
+cd -
+
+export CMAKE_PREFIX_PATH=$instroot
+
+echo "**** test local/global config ****"
+src1=$root/acme/test_exe
+bld1=$root/build/test_exe
+src2=$root/acme/test_static
+cat $ACME_ROOT_ACTUAL/test/common/test_debug_postfix.cmake >>$src1/CMakeLists.txt
+
+echo "**** no acme root + no local ****"
+export ACME_ROOT=
+cmake -H$src1 -B$bld1 -DEXPECTED_DEBUG_POSTFIX=_d
+
+echo "**** no acme root + local ****"
+echo "set(ACME_DEBUG_POSTFIX _d2)" >$src1/acme.config.cmake
+cmake -H$src1 -B$bld1 -DEXPECTED_DEBUG_POSTFIX=_d2
+
+echo "**** acme root + no global + no local ****"
+export ACME_ROOT=$src2
+rm $src1/acme.config.cmake
+cmake -H$src1 -B$bld1 -DEXPECTED_DEBUG_POSTFIX=_d
+
+echo "**** acme root + no global + local ****"
+echo "set(ACME_DEBUG_POSTFIX _d3)" >$src1/acme.config.cmake
+cmake -H$src1 -B$bld1 -DEXPECTED_DEBUG_POSTFIX=_d3
+
+echo "**** acme root + global + no local ****"
+rm $src1/acme.config.cmake
+echo "set(ACME_DEBUG_POSTFIX _d4)" >$src2/acme.config.cmake
+cmake -H$src1 -B$bld1 -DEXPECTED_DEBUG_POSTFIX=_d4
+
+echo "**** acme root + global + local ****"
+echo "set(ACME_DEBUG_POSTFIX _d5)" >$src1/acme.config.cmake
+cmake -H$src1 -B$bld1 -DEXPECTED_DEBUG_POSTFIX=_d5
+
+echo "Test passed"
