@@ -94,6 +94,22 @@ if(NOT ACME_SCRIPTS_INCLUDED)
 		acme_print_var_core(ENV_${ape.x} "ENV{${ape.x}}")
 	endfunction()
 
+	# make relative file names absolute by prefixing with CMAKE_CURRENT_SOURCE_DIR
+	# also normalize path (../ will be resolved)
+	macro(acme_make_absolute_source_filename _var)
+		if(NOT IS_ABSOLUTE "${${_var}}")
+			set(${_var} "${CMAKE_CURRENT_SOURCE_DIR}/${${_var}}")
+		endif()
+		get_filename_component(${_var} "${${_var}}" ABSOLUTE)
+	endmacro()
+
+	# make relative file names absolute by prefixing with CMAKE_CURRENT_SOURCE_DIR
+	# also normalize path (../ will be resolved)
+	macro(acme_get_absolute_source_filename _var _path)
+		set(${_var} "${_path}")
+		acme_make_absolute_source_filename(${_var})
+	endmacro()
+
 	macro(acme_list_set _als_list _als_idx _als_value)
 		list(LENGTH ${_als_list} _als_length)
 		if(_als_idx GREATER _als_length OR _als_idx EQUAL _als_length OR _als_idx LESS 0)
@@ -138,6 +154,7 @@ if(NOT ACME_SCRIPTS_INCLUDED)
 		message(STATUS "ACME package name: ${ACME_PACKAGE_NAME}")
 	endmacro()
 
+	# acme_get_project_relative_path_components path_in dir_out name_out [base_dir_out]
 	# Return the relative path of a file to the project.
 	# 
 	# If the input par 'path_in' is relative, it is interpreted relative to
@@ -187,6 +204,9 @@ if(NOT ACME_SCRIPTS_INCLUDED)
 		else()
 			set(${dir_out} NOTFOUND PARENT_SCOPE)
 			get_filename_component(local_name_out ${path_in} NAME)
+		endif()
+		if(ARGV3)
+			set(${ARGV3} ${root} PARENT_SCOPE)
 		endif()
 		set(${name_out} ${local_name_out} PARENT_SCOPE)
 	endfunction()
