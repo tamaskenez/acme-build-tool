@@ -68,8 +68,7 @@ if(NOT ACME_SCRIPTS_INCLUDED)
 
 	set(ACME_SCRIPTS_INCLUDED 1)
 
-	set(ACME_DIR ${CMAKE_CURRENT_LIST_DIR}/..)
-	get_filename_component(ACME_DIR ${ACME_DIR} ABSOLUTE)
+	get_filename_component(ACME_DIR ${CMAKE_CURRENT_LIST_DIR}/.. ABSOLUTE)
 
 	include(${ACME_DIR}/src/consts.cmake)
 

@@ -1,7 +1,5 @@
 # load config
-
-set(ACME_DIR ${CMAKE_CURRENT_LIST_DIR}/..)
-get_filename_component(ACME_DIR ${ACME_DIR} ABSOLUTE)
+get_filename_component(ACME_DIR ${CMAKE_CURRENT_LIST_DIR}/.. ABSOLUTE)
 
 if(IS_DIRECTORY "$ENV{ACME_ROOT}")
 	set(ACME_ROOT "$ENV{ACME_ROOT}")
@@ -25,9 +23,10 @@ if(EXISTS "${ACME_LOCAL_CONFIG_FILE}")
 endif()
 
 file(READ ${ACME_DIR}/version ACME_VERSION)
-string(STRIP ACME_VERSION "${ACME_VERSION}")
+string(STRIP "${ACME_VERSION}" ACME_VERSION)
+
 if("${ACME_VERSION}" STREQUAL "")
-	message(FATAL_ERROR "Missing version in '${ACM_DIR}'")
+	message(FATAL_ERROR "Missing version in '${ACME_DIR}'")
 endif()
 
 unset(ACME_ROOT_VERSION)
@@ -38,12 +37,12 @@ if(ACME_ROOT
 	AND EXISTS "${ACME_ROOT}/version"
 )
 	file(READ ${ACME_ROOT}/version ACME_ROOT_VERSION)
+	string(STRIP "${ACME_ROOT_VERSION}" ACME_ROOT_VERSION)
 else()
 	unset(ACME_ROOT_VERSION)
 endif()
 
 if(ACME_ROOT_VERSION AND ACME_ROOT_VERSION VERSION_GREATER ACME_VERSION)
-
 	message("Updating ACME from ${ACME_ROOT}")
 	message("Updating from version ${ACME_VERSION} to ${ACME_ROOT_VERSION}")
 
