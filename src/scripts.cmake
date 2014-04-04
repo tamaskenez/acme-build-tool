@@ -15,7 +15,7 @@ if(NOT ACME_SCRIPTS_INCLUDED)
 # ACME_TARGET_NAME
 #    default = ACME_PACKAGE_NAME
 # ACME_PUBLIC_HEADER_FILES
-#     header files marked as public
+#     header files marked as public or added with acme_add_public_headers
 # ACME_FIND_PACKAGE_INCLUDE_DIRS
 # ACME_FIND_PACKAGE_LIBRARIES
 # ACME_FIND_PACKAGE_DEFINITIONS
@@ -42,6 +42,10 @@ if(NOT ACME_SCRIPTS_INCLUDED)
 #     it's the arguments of the corresponding find_package call
 # ACME_PUBLIC_HEADERS_TO_DESTINATION_MAP
 #     key is a public header (abs path), value is the installation postfix (after include/package-dir)
+# ACME_PUBLIC_HEADER_TAGGED_BASE_DIRS
+#     the base dirs for the files tagged with #acme public header
+# ACME_PUBLIC_HEADER_BASE_DIRS
+#     the base dirs for all public headers
 # ACME_SOURCE_AND_HEADER_FILES
 #     list of source and header files
 # ACME_FIND_PACKAGE_NAMESPACE_LIST
@@ -848,7 +852,142 @@ if(NOT ACME_SCRIPTS_INCLUDED)
 		list(APPEND ACME_PUBLIC_HEADER_FILES ${entry})
 	endmacro()
 
-	# acme_add_public_header(
+	# acme_add_public_headers(FILES <file> [<file> ...] RELATIVE <dir>])
+	# acme_add_public_headers(GLOB|GLOB_RECURSE <glob-expr> [<glob-expr>] [RELATIVE dir])
+	# acme_add_public_headers(TAGGED RELATIVE dir)
+	#
+	# You can add files to the list of the public headers with
+	# this function. The install location (thus the path it
+	# can be accessed by the #include directives) is the relative
+	# path from a base directory. An example:
+	#
+	# - there are 2 public headers: <current-source>/h1.h and <current-source>/foo/h2.h
+	# - the base directory for both is <current-source>
+	# - they will be installed to include/<package-path>/h1.h and include/<package-path>/foo/h2.h
+	#
+	# With the FILES keyword you can specify a file list. The RELATIVE keyword
+	# specifies the base directory for the files. If it's omitted it will
+	# be either the current source or binary dir depending on the location
+	# of the file.
+	#
+	# The GLOB and GLOB_RECURSE work as in the CMake function. Omitting the RELATIVE
+	# keyword have the same effect as the previous FILE signature.
+	#
+	# The TAGGED signature has effect on the install location of the
+	# files tagged with the `//#acme public header` or `/*#acme public header*/ macro.
+	# By default their base directory is the current source dir. With this function
+	# you can add additional base directories. For a given file the nearest base
+	# directory will have effect.
+	#
+	# Relative file paths will be interpreted relative to current source dir.
+	#
+	# You can mix the FILES/GLOB/GLOB_RECURSE/TAGGED signatures. You can
+	# specify multiple ones from each.
+	#
+	# Note on selecting the base directories. For clients of a library
+	# the library's public headers must be accessed by full package path:
+	#
+	# #include "company/foo/bar/h1.h"
+	#
+	# The same header accessed from withing the library 'company.foo.bar':
+	#
+	# #include "h1.h"
+	#
+	# Both #include lines need to have the appropriate include_directories()
+	# (-I compiler option) defined.
+	#
+	# However when multiple projects are combined in a superproject when
+	# building the superproject the headers of company.foo.bar will not be installed by
+	# the time its clients need it. So it must be accessed from the source
+	# tree. The problem is that they are trying to use full paths in their
+	# #include lines.
+	#
+	# In order to be able to add the appropriate include directories
+	#
+	# - the source tree of the library company.foo.bar must reside below
+	#   the path company/foo/bar. The target company.foo.bar will be added
+	#   a directory in its INTERFACE_INCLUDE_DIRECTORIES target property
+	#   to the parent of company/foo/bar.
+	# - or the library should be in a directory company.foo.bar. The
+	#   clients' #include lines will be automatically rewritten by their
+	#   acme scripts to #include "company.foo.bar/h1" and the parent
+	#   dir will be added to INTERFACE_INCLUDE_DIRECTORIES.
+	#
+	# However we need to keep the following rules in order to be able to
+	# support inclusion in superprojects:
+	#
+	# - The only header base directories should be the current source dir
+	#   and the current binary dir
+	# - Both should be placed in a hierarchy by the package name or
+	#   they must be named as the package is (dot-separated)
+	include(CMakeParseArguments)
+	function(acme_add_public_headers)
+		set(multiarg_modes FILES;GLOB;GLOB_RECURSE)
+		set(argless_modes TAGGED)
+		set(modes ${multiarg_modes} ${argless_modes})
+		cmake_parse_arguments(
+			APH
+			TAGGED
+			RELATIVE
+			"${modes}"
+			${ARGN})
+		unset(mode)
+		foreach(i ${modes})
+			if(APH_${i})
+				list(APPEND mode ${i})
+			endif()
+		endforeach()
+		list(LENGTH mode l)
+		if(NOT l EQUAL 1)
+			message(FATAL_ERROR "Specify exactly one of these keywords: ${modes}")
+		endif()
+
+		if(APH_RELATIVE)
+			acme_make_absolute_source_filename(APH_RELATIVE)
+		endif()
+
+		if(${mode} STREQUAL GLOB OR ${mode} STREQUAL "GLOB_RECURSE")
+			file(${mode} APH_FILES ${APH_${mode}})
+			acme_remove_acme_dir_files(APH_FILES)
+			set(mode FILES)
+		endif()
+
+		if(${mode} STREQUAL FILES)
+			foreach(i ${APH_FILES})
+				acme_make_absolute_source_filename(i)
+				if(APH_RELATIVE)
+					string(FIND "${i}" "${APH_RELATIVE}" idx)
+					if(NOT idx EQUAL 0)
+						message(FATAL_ERROR "Public header ${i} is not in the specified base directory ${APH_RELATIVE}")
+					endif()
+					set(base_dir "${APH_RELATIVE}")
+					file(RELATIVE_PATH dest_dir "${APH_RELATIVE}" "${i}")
+				else()
+					acme_get_project_relative_path_components(${i} dest_dir name_out base_dir)
+					if(dest_dir STREQUAL NOTFOUND)
+						message(FATAL_ERROR "Public header ${i} should be either in the current source or binary dir if no RELATIVE path is given.")
+					endif()
+				endif()
+				list(APPEND ACME_PUBLIC_HEADER_FILES ${i})
+				acme_dictionary_set(ACME_PUBLIC_HEADERS_TO_DESTINATION_MAP ${i} ${dest_dir})
+				list(APPEND ACME_PUBLIC_HEADER_BASE_DIRS ${base_dir})
+			endforeach()
+		elseif(${mode} STREQUAL TAGGED)
+			if(NOT APH_RELATIVE)
+				message("TAGGED: missing RELATIVE argument")
+			endif()
+			acme_make_absolute_source_filename(APH_RELATIVE)
+			list(APPEND ACME_PUBLIC_HEADER_TAGGED_BASE_DIRS "${APH_RELATIVE}")
+		else()
+			message(FATAL_ERROR "Invalid keyword: ${mode}")
+		endif()
+		set(ACME_PUBLIC_HEADERS_TO_DESTINATION_MAP_KEYS ${ACME_PUBLIC_HEADERS_TO_DESTINATION_MAP_KEYS} PARENT_SCOPE)
+		set(ACME_PUBLIC_HEADERS_TO_DESTINATION_MAP_VALUES ${ACME_PUBLIC_HEADERS_TO_DESTINATION_MAP_VALUES} PARENT_SCOPE)
+		set(ACME_PUBLIC_HEADER_FILES ${ACME_PUBLIC_HEADER_FILES} PARENT_SCOPE)
+		set(ACME_PUBLIC_HEADER_BASE_DIRS ${ACME_PUBLIC_HEADER_BASE_DIRS} PARENT_SCOPE)
+	endfunction()
+
+		# acme_add_public_header(
 	#	<file1> [DESTINATION <destdir1>]
 	#	<file1> [DESTINATION <destdir2>])
 	#
