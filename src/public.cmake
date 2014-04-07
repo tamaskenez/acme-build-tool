@@ -172,8 +172,9 @@ endmacro()
 #	[GLOB|GLOB_RECURSE <pattern> [<pattern> ...])
 # the FILES, GLOB and GLOB_RECURSE keywords can be used multiple times
 macro(acme_add_executable _aae_name)
+	set(_aae_options WIN32 MACOSX_BUNDLE EXCLUDE_FROM_ALL)
 	cmake_parse_arguments(_AAE
-		"WIN32;MACOSX_BUNDLE;EXCLUDE_FROM_ALL"
+		"${_aae_options}"
 		""
 		""
 		${ARGN})
@@ -181,7 +182,7 @@ macro(acme_add_executable _aae_name)
 	acme_append_files_with_globbers(_AAE_FILES _AAE_GLOB _AAE_GLOB_RECURSE)
 	# reconstruct args
 	unset(_aae_v)
-	foreach(_aae_i WIN32 MACOSX_BUNDLE EXCLUDE_FROM_ALL)
+	foreach(_aae_i ${_aae_options})
 		if(_AAE_${_aae_i})
 			list(APPEND _aae_v ${_aae_i})
 		endif()
@@ -193,5 +194,47 @@ endmacro()
 #	[[FILES] <file> [<file> ...]]
 #	[GLOB|GLOB_RECURSE <pattern> [<pattern> ...])
 # the FILES, GLOB and GLOB_RECURSE keywords can be used multiple times
-macro(acme_add_library)
+macro(acme_add_library _aal_name)
+	set(_aal_options STATIC SHARED MODULE EXCLUDE_FROM_ALL)
+	cmake_parse_arguments(_AAL
+		"${_aal_options}"
+		""
+		""
+		${ARGN})
+	acme_process_add_target_unprocessed_args(_AAL_FILES _AAL_GLOB _AAL_GLOB_RECURSE ${_AAL_UNPARSED_ARGUMENTS})
+	acme_append_files_with_globbers(_AAL_FILES _AAL_GLOB _AAL_GLOB_RECURSE)
+	# reconstruct args
+	unset(_aal_v)
+	foreach(_aal_i ${_aal_options})
+		if(_AAL_${_aal_i})
+			list(APPEND _aal_v ${_aal_i})
+		endif()
+	endforeach()
+	add_executable(${_aal_name} ${_aal_v} ${_AAL_FILES})
 endmacro()
+
+# acme_add_include_guards(<globbing-expr> <globbing-expr> ... [EXCLUDE <globbing-expr> <globbing-expr> ...])
+function(acme_add_include_guards)
+	set(exclude 0)
+	unset(include_list)
+	unset(exclude_list)
+	foreach(i ${ARGV})
+		if(i STREQUAL EXCLUDE)
+			set(exclude 1)
+		else()
+			file(GLOB_RECURSE v ${i})
+			acme_remove_acme_dir_files(v)
+			if(NOT exclude)
+				list(APPEND include_list ${v})
+			else()
+				list(APPEND exclude_list ${v})
+			endif()
+		endif()
+	endforeach()
+	foreach(i ${include_list})
+		list(FIND exclude_list ${i} v)
+		if(v EQUAL -1)
+			acme_add_include_guard_if_needed(${i})
+		endif()
+	endforeach()
+endfunction()
