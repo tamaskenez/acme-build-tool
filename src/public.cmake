@@ -188,6 +188,7 @@ macro(acme_add_executable _aae_name)
 		endif()
 	endforeach()
 	add_executable(${_aae_name} ${_aae_v} ${_AAE_FILES})
+	acme_set_target_properties(${_aae_name})
 endmacro()
 
 # acme_add_library(<target-name> [STATIC|SHARED|MODULE] [EXCLUDE_FROM_ALL]
@@ -211,6 +212,7 @@ macro(acme_add_library _aal_name)
 		endif()
 	endforeach()
 	add_executable(${_aal_name} ${_aal_v} ${_AAL_FILES})
+	acme_set_target_properties(${_aal_name})
 endmacro()
 
 # acme_add_include_guards(<globbing-expr> <globbing-expr> ... [EXCLUDE <globbing-expr> <globbing-expr> ...])

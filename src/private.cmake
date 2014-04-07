@@ -61,7 +61,8 @@ endfunction()
 
 # acme_remove_acme_dir_files(files_var_inout)
 # Removes the files from the list which are in the ${CMAKE_CURRENT_SOURCE_DIR}/.acme
-# Expects absolute paths
+# Expects absolute paths. This function used for the result of a GLOB/GLOB_RECURSE
+# and then they will be absolute paths.
 function(acme_remove_acme_dir_files files_var_inout)
 	set(files_inout ${${files_var_inout}})
 	unset(v)
@@ -245,3 +246,9 @@ function(acme_add_include_guard_if_needed file)
 	  	acme_add_include_guard_if_needed_core(${file})
 	  #endif()
 endfunction()
+
+# acme_set_target_properties(<targe-name>)
+# sets the target properties defined in an acme.config file for all acme targets
+macro(acme_set_target_properties _stp_target_name)
+	set_target_properties(${_stp_target_name} PROPERTIES DEBUG_POSTFIX "${ACME_DEBUG_POSTFIX}")
+endmacro()
