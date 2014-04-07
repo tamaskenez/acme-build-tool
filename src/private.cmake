@@ -33,38 +33,39 @@ function(acme_target_link_libraries_single_package _target_name _package_name _s
 endfunction()
 
 # acme_process_add_target_unprocessed_args(<files_var_out> <globs_var_out> <glob_recurses_var_out>
-	<arg1> <arg> ... FILES ... GLOB ... GLOB_RECURSE ...)
+#	<arg1> <arg> ... FILES ... GLOB ... GLOB_RECURSE ...)
 # collect the items in the tail list:
 # the first items and items after FILES go into files_var_out
 # items after GLOB go into globs_var_out
 # items after GLOB_RECURSE go into glob_recurses_var_out
 function(acme_process_add_target_unprocessed_args files_var_out globs_var_out glob_recurses_var_out)
-	unset(${files_var_out})
-	unset(${globs_var_out})
-	unset(${glob_recurses_var_out})
-	set(varname ${files_var_out})
+	unset(files_out)
+	unset(globs_out})
+	unset(glob_recurses_out})
+	set(varname files_out)
 	foreach(i ${ARGN})
 		if("${i}" STREQUAL FILES)
-			set(varname ${files_var_out})
+			set(varname files_out)
 		elseif("${i}" STREQUAL GLOB)
-			set(varname ${globs_var_out})
+			set(varname globs_out)
 		elseif("${i}" STREQUAL GLOB_RECURSE)
-			set(varname ${glob_recurses_var_out})
-		elseif()
+			set(varname glob_recurses_out)
+		else()
 			list(APPEND ${varname} "${i}")
 		endif()
 	endforeach()
-	set(${files_var_out} ${files_var_out} PARENT_SCOPE)
-	set(${globs_var_out} ${globs_var_out} PARENT_SCOPE)
-	set(${glob_recurses_var_out} ${glob_recurses_var_out} PARENT_SCOPE)
+	set(${files_var_out} ${files_out} PARENT_SCOPE)
+	set(${globs_var_out} ${globs_out} PARENT_SCOPE)
+	set(${glob_recurses_var_out} ${glob_recurses_out} PARENT_SCOPE)
 endfunction()
 
 # acme_remove_acme_dir_files(files_var_inout)
 # Removes the files from the list which are in the ${CMAKE_CURRENT_SOURCE_DIR}/.acme
 # Expects absolute paths
 function(acme_remove_acme_dir_files files_var_inout)
+	set(files_inout ${${files_var_inout}})
 	unset(v)
-	foreach(i ${${files_var_inout}})
+	foreach(i ${files_inout})
 		if(NOT IS_ABSOLUTE "${i}")
 			message(FATAL_ERROR "Internal error, this function expects absolute paths.")
 		endif()
@@ -76,19 +77,19 @@ function(acme_remove_acme_dir_files files_var_inout)
 	set(${files_var_inout} ${v} PARENT_SCOPE)
 endfunction()
 
-# acme_append_files_with_globbers(files_var_inout glob_var glob_recurse_var)
+# acme_append_files_with_globbers(files_var_inout glob_var_in glob_recurse_var_in)
 # - performs the GLOB and GLOB_RECURSE operations for the lists in the
 #   glob_var, glob_recurse_var
 # - filters out files from .acme subdirectory of the CMAKE_CURRENT_SOURCE_DIR
 # - appends the globbed files to files_var_inout
-function(acme_append_files_with_globbers files_var_inout glob_var glob_recurse_var)
-	file(GLOB v1 ${${glob_var}})
-	file(GLOB v2 ${${glob_recurse_var}})
-	endforeach()
-	set(v ${v1} ${v2})
+function(acme_append_files_with_globbers files_var_inout glob_var_in glob_recurse_var_in)
+	set(_afwg_files_in ${${files_var_inout}})
+	file(GLOB _afwg_v1 ${${glob_var_in}})
+	file(GLOB_RECURSE _afwg_v2 ${${glob_recurse_var_in}})
+	set(v ${_afwg_v1} ${_afwg_v2})
 	acme_remove_acme_dir_files(v)
-	set(${files_var_inout} ${files_var_inout} ${v} PARENT_SCOPE)
-endfunction
+	set(${files_var_inout} ${_afwg_files_in} ${v} PARENT_SCOPE)
+endfunction()
 
 # acme_get_project_relative_path_components(path_in dir_out name_out [base_dir_out])
 # Return the relative path of a file to the project.

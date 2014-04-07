@@ -1,6 +1,6 @@
 # the command-line acme command (usually invoked from the acme shell script in parent directory)
 
-cmake_minumum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 2.8.12)
 
 set(ARGS ${ARG2} ${ARG3} ${ARG4} ${ARG5} ${ARG6})
 if(ARG1 STREQUAL "init")

@@ -109,13 +109,9 @@ assert_empty_or_undefined(v)
 set(v0 ${CMAKE_CURRENT_SOURCE_DIR}/1)
 set(v1 ${CMAKE_CURRENT_SOURCE_DIR}/.acme/2)
 set(v2 ${CMAKE_CURRENT_SOURCE_DIR}/3)
-set(v ${v0} ${v1} ${v3})
-list(LENGTH v l)
-assert_strequal(l 2)
-list(GET v 0 e)
-assert_strequal(e ${v0})
-list(GET v 1 e1)
-assert_strequal(e ${v2})
+set(v ${v0} ${v1} ${v2})
+acme_remove_acme_dir_files(v)
+assert_listequal(v ${v0} ${v2})
 
 acme_process_add_target_unprocessed_args(f g gr f0 f1 GLOB g0 g1 GLOB_RECURSE gr0 gr1 FILES f2 GLOB g2 GLOB_RECURSE gr2)
 assert_listequal(f f0 f1 f2)
@@ -137,6 +133,7 @@ set(gr ${CMAKE_CURRENT_BINARY_DIR}/*.hxx)
 acme_append_files_with_globbers(f g gr)
 list(SORT f)
 set(ff
+	1.h
 	${CMAKE_CURRENT_BINARY_DIR}/2.h
 	${CMAKE_CURRENT_BINARY_DIR}/2.hxx
 	${CMAKE_CURRENT_BINARY_DIR}/2.c
