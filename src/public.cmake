@@ -157,8 +157,11 @@ macro(acme_find_package)
 					message(FATAL_ERROR "ALIAS specified but package name '${_afp_package_name}' is not a valid namespace name")
 				endif()
 				set(_afp_namespace_dots ${_afp_package_name})
+			else()
+				# explicit NAMESPACE was given which overrides the default package-name-derived namespace
+				acme_dictionary_set(ACME_FIND_PACKAGE_NAME_TO_NAMESPACE_MAP "${_afp_package_name}" "${_afp_namespace_dots}")
 			endif()
-			acme_dictionary_set(ACME_FIND_PACKAGE_NAMESPACE_TO_ALIAS_MAP "${_afp_namespace_dots}" "${_AFP_ALIAS}")
+			acme_dictionary_set(ACME_NAMESPACE_TO_ALIAS_MAP "${_afp_namespace_dots}" "${_AFP_ALIAS}")
 		endif()
 
 		list(APPEND ACME_FIND_PACKAGE_NAMES ${_afp_package_name})
@@ -187,8 +190,9 @@ macro(acme_add_executable _aae_name)
 			list(APPEND _aae_v ${_aae_i})
 		endif()
 	endforeach()
-	add_executable(${_aae_name} ${_aae_v} ${_AAE_FILES})
-	acme_initialize_target(${_aae_name})
+	add_executable("${_aae_name}" ${_aae_v} ${_AAE_FILES})
+	acme_initialize_target("${_aae_name}")
+	acme_process_sources("${_aae_name}" ${_AAE_FILES})
 endmacro()
 
 # acme_add_library(<target-name> [STATIC|SHARED|MODULE] [EXCLUDE_FROM_ALL]
@@ -211,8 +215,9 @@ macro(acme_add_library _aal_name)
 			list(APPEND _aal_v ${_aal_i})
 		endif()
 	endforeach()
-	add_executable(${_aal_name} ${_aal_v} ${_AAL_FILES})
-	acme_initialize_target(${_aal_name})
+	add_executable("${_aal_name}" ${_aal_v} ${_AAL_FILES})
+	acme_initialize_target("${_aal_name}")
+	acme_process_sources("${_aal_name}" ${_AAL_FILES})
 endmacro()
 
 # acme_add_include_guards(<globbing-expr> <globbing-expr> ... [EXCLUDE <globbing-expr> <globbing-expr> ...])
@@ -241,162 +246,3 @@ function(acme_add_include_guards)
 	endforeach()
 endfunction()
 
-# acme_process_sources(<target-name> <file1> <file2> ...)
-#
-# Processes ACME_SOURCE_AND_HEADE_FILES. Relative paths interpreted
-# relative to the current source dir.
-#
-# The function performs the following processing steps
-#
-# - collects public header files (files marked with //#acme interface or /*#acme interface*/)
-#   These files update the following target properties:
-#   - ACME_INTERFACE_FILE_TO_DESTINATION_MAP_KEYS/VALUES
-#
-# - processes //#{, //#}, //#. acme macros and generates #acme generated lines
-function(acme_process_sources target_name)
-	# Create normalized, abs paths of the files that do exist
-	unset(filelist)
-	foreach(i ${ARGN})
-		acme_make_absolute_source_filename(i)
-		if(EXISTS ${i} AND NOT IS_DIRECTORY ${i})
-			list(APPEND filelist ${i})
-		endif()
-	endforeach()
-
-	set(ACME_CMD_PUBLIC_HEADER "#acme interface")
-	set(ACME_CMD_GENERATED_LINE_SUFFIX "//#acme generated line")
-	set(ACME_CMD_BEGIN_PACKAGE_NAMESPACE "//#{")
-	set(ACME_CMD_END_PACKAGE_NAMESPACE "//#}")
-	set(ACME_CMD_USE_NAMESPACE_ALIASES_REGEX "//#[.]")
-	set(ACME_CMD_USE_NAMESPACE_ALIASES_LITERAL "//#.")
-
-	acme_source_group(${filelist})
-
-	#find interface files (public headers)
-	unset(interface_files)
-	unset(interface_file_destinations)
-	foreach(i ${filelist})
-		file(STRINGS ${i} v REGEX "^[ \t]*(//${ACME_CMD_PUBLIC_HEADER})|(/[*]#${ACME_CMD_PUBLIC_HEADER}[ \t]*[*]/)[ \t]*$")
-		if(v)
-			list(APPEND interface_files ${i})
-			list(APPEND interface_file_destinations "")
-		endif()
-	endforeach()
-	set_property(TARGET ${target_name} PROPERTY APPEND
-		ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_KEYS "${interface_files}")
-	set_property(TARGET ${target_name} PROPERTY APPEND
-		ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_VALUES "${interface_file_destinations}")
-
-	unset(headers_found) # headers tested and found as a package header
-	unset(headers_found_to_package_names) # the corresponding package name
-	unset(headers_not_found) # headers already tested but not found as a package header
-
-	# read through all files
-	foreach(current_source_file ${filelist})
-		file(RELATIVE_PATH current_source_file_relpath ${CMAKE_CURRENT_SOURCE_DIR} ${current_source_file})
-		file(STRINGS ${current_source_file} current_file_list_of_include_lines REGEX "^[ \t]*#include[ \t]((\"[a-zA-Z0-9_/.-]+\")|(<[a-zA-Z0-9_/.-]+>))[ \t]*((//)|(/[*]))?.*$")
-		unset(current_file_comp_def_list)
-#		foreach(current_line ${current_file_list_of_include_lines})
-#			string(REGEX MATCH "#include[ \t]+((\"([a-zA-Z0-9_/.-]+)\")|(<([a-zA-Z0-9_/.-]+)>))" w ${current_line})
-#			set(header "${CMAKE_MATCH_3}${CMAKE_MATCH_5}") # this is the string betwen "" or <>
-#			# todo: here we should do something if the include mode of a header
-#			# include "company/foo/bar/h.h"
-#			# include "company.foo.bar/h.h"
-#			# include "h.h"
-#			# but first let's find the package (which can be an adjacent target)
-#			# then decide if the include path is good or what to do with it
-#
-#			# find package name for this header
-#			list(FIND headers_found ${header} hf_idx)
-#			if(hf_idx EQUAL -1)
-#				list(FIND headers_not_found ${header} hnf_idx)
-#			else()
-#				set(hnf_idx -1)
-#			endif()
-#			if(hf_idx EQUAL -1 AND hnf_idx EQUAL -1)
-#				# try to find a package added with acme_find_package
-#				# that matches the path this header
-#				string(REGEX MATCHALL "[^/]+" hc ${header}) # header components
-#				unset(package_name)
-#				foreach(c ${hc})
-#					# validate header path component as package name component
-#					string(REGEX MATCH "^${ACME_REGEX_C_IDENTIFIER}$" v ${c})
-#					if(NOT v)
-#						# probably we're already at the filename, this package was not found
-#						break()
-#					endif()
-#					# the package name for the path so far
-#					if(package_name)
-#						set(package_name ${package_name}.${c})
-#					else()
-#						set(package_name ${c})
-#					endif()
-#					list(FIND ACME_FIND_PACKAGE_NAMESPACE_LIST ${package_name} namespace_idx)
-#					if(NOT namespace_idx EQUAL -1)
-#						list(LENGTH headers_found hf_idx) # will be at this idx
-#						list(APPEND headers_found ${header})
-#						list(APPEND headers_found_to_package_names ${package_name})
-#						break() # don't try next component
-#					endif()
-#				endforeach() # for each header path component
-#			endif() # if header was neither not found nor found
-#			if(NOT hf_idx EQUAL -1)
-#				list(GET headers_found_to_package_names ${hf_idx} package_name)
-#				list(FIND ACME_FIND_PACKAGE_NAMESPACE_LIST ${package_name} namespace_idx)
-#				list(GET ACME_FIND_PACKAGE_NAMESPACE_ALIAS_LIST ${namespace_idx} alias)
-#				if(NOT package_name OR namespace_idx EQUAL -1 OR NOT alias)
-#					acme_print_var(package_name)
-#					acme_print_var(namespace_idx)
-#					acme_print_var(alias)
-#					message(FATAL_ERROR "The variables above should be all valid here but they are not")
-#				endif()
-#				string(REPLACE "." "::" header_namespace ${package_name})
-#				if(alias STREQUAL ".")
-#					set(s "using namespace ${header_namespace}")
-#				else()
-#					set(s "namespace ${alias} = ${header_namespace}")
-#				endif()
-#				list(APPEND current_file_comp_def_list "${s}")
-#			endif()
-#		endforeach() # for each header in this file
-
-		unset(csf)
-		file(READ ${current_source_file} csf)
-
-		if(csf)
-			set(csf_orig "${csf}")
-			# remove generated lines
-			string(REGEX REPLACE "[^\n]*${ACME_CMD_GENERATED_LINE_SUFFIX}[^\n]*(\n|$)" "" csf "${csf}")
-
-			# generate acme macros
-			# _snippet_begin_namespace and _snippet_end_namespace
-			# will be strings like "namespace foo { namespace bar {" and "}}"
-			string(REPLACE "/" " { namespace " _snippet_begin_namespace ${ACME_PACKAGE_NAME_SLASH})
-			set(_snippet_begin_namespace "namespace ${_snippet_begin_namespace} {")
-			string(REGEX REPLACE "[^/]" "" _snippet_end_namespace ${ACME_PACKAGE_NAME_SLASH})
-			string(REPLACE "/" "}" _snippet_end_namespace "${_snippet_end_namespace}")
-			set(_snippet_end_namespace "}${_snippet_end_namespace}")
-
-			unset(s)
-			if(current_file_comp_def_list)
-				list(REMOVE_DUPLICATES current_file_comp_def_list)
-				foreach(i ${current_file_comp_def_list})
-					set(s "${s}${i}; ${ACME_CMD_GENERATED_LINE_SUFFIX}\n")
-				endforeach()
-			endif()
-
-			string(REGEX REPLACE "[ \t]*${ACME_CMD_BEGIN_PACKAGE_NAMESPACE}[ \t]*(\n|$)"
-				"${ACME_CMD_BEGIN_PACKAGE_NAMESPACE}\n${_snippet_begin_namespace} ${ACME_CMD_GENERATED_LINE_SUFFIX}\n${s}"
-				csf "${csf}")
-			string(REGEX REPLACE "[ \t]*${ACME_CMD_END_PACKAGE_NAMESPACE}[ \t]*(\n|$)"
-				"${ACME_CMD_END_PACKAGE_NAMESPACE}\n${_snippet_end_namespace} ${ACME_CMD_GENERATED_LINE_SUFFIX}\n"
-				csf "${csf}")
-			string(REGEX REPLACE "[ \t]*${ACME_CMD_USE_NAMESPACE_ALIASES_REGEX}[ \t]*(\n|$)"
-				"${ACME_CMD_USE_NAMESPACE_ALIASES_LITERAL}\n${s}"
-				csf "${csf}")
-			if(NOT "${csf_orig}" STREQUAL "${csf}")
-				file(WRITE ${current_source_file} "${csf}")
-			endif()
-		endif()
-	endforeach() # for each source file
-endfunction()

@@ -319,3 +319,293 @@ function(acme_update_target_interface_auto_file_destinations target_name)
 		ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_VALUES "${map_VALUES}"
 	)
 endfunction()
+
+# The header path is expected to be either like
+#     a.b.c/d/e/f.h and then the package name could be a.b.c
+# or
+#     a/b/c/d/e/f.h and then the package name could be a, a.b, ... a.b.c.d.e
+function(create_package_name_candidates_from_header_path header candidates_var_out)
+	set(${candidates_var_out} PARENT_SCOPE)
+
+	# if no slash
+	if(idx_slash EQUAL -1)
+		return()
+	endif()
+
+	string(FIND "${header}" . idx_dot)
+	string(FIND "${header}" / idx_slash)
+
+	if(NOT idx_dot EQUAL -1 AND idx_dot LESS idx_slash)
+		# only the dot package name is possible
+		string(REGEX MATCH "^(${ACME_REGEX_C_IDENTIFIER}([.]${ACME_REGEX_C_IDENTIFIER})*)/.+" _ ${header})
+		set(package_names ${CMAKE_MATCH_1})
+		if(NOT _ OR NOT package_names)
+			return()
+		endif()
+	else()
+		# only the slash package name is possible
+		unset(package_name)
+		string(REGEX MATCHALL "[^/]+" hc ${header}) # header components
+		# remove last component
+		list(LENGTH hc l)
+		if(l LESS 2)
+			return() # there must be at least the path and the header file (a/b.h)
+		endif()
+		math(EXPR l "${l}-1")
+		list(REMOVE_AT hc ${l})
+		foreach(c ${hc})
+			# validate header path component as package name component
+			string(REGEX MATCH "^${ACME_REGEX_C_IDENTIFIER}$" v ${c})
+			if(NOT v)
+				break()
+			endif()
+			# the package name for the path so far
+			if(package_name)
+				set(package_name ${package_name}.${c})
+			else()
+				set(package_name ${c})
+			endif()
+			list(APPEND package_names ${package_name})
+		endforeach()
+	endif()
+	set(${candidates_var_out} ${package_names} PARENT_SCOPE)
+endfunction()
+
+# find_package_for_header <header_path> <package_name_var_out> <prefix_var_out>
+# It tries to interpret the first part of the header_path
+# as a reference to a package name, then tries
+# to find either a package (previously found by
+# find_package or acme_find_package) or another target
+# with the same name.
+# Returns either
+# - if a target found: a dot-separated package name = target name and prefix = ""
+# - if a package found: a dot-separated package name and a prefix that can be used to query XXX_INCLUDE_DIRS variables
+# - empty variables in both output variables if nothing found
+function(find_package_for_header header package_name_var_out prefix_var_out)
+	set(${package_name_var_out} PARENT_SCOPE)
+	set(${prefix_var_out} PARENT_SCOPE)
+
+	create_package_name_candidates(header package_names)
+	if(NOT package_names)
+		return()
+	endif()
+
+	foreach(package_name ${package_names})
+		# try to find a target
+		get_target_property(name ${package_name} NAME)
+		if(name)
+			set(${package_name_var_out} ${package_name} PARENT_SCOPE)
+			return()
+		else()
+			string(TOUPPER ${package_name} package_name_upper)
+			unset(prefix)
+			if(${package_name_upper}_FOUND)
+				set(prefix ${package_name_upper})
+			elseif(${package_name}_FOUND)
+				set(prefix ${package_name})
+			endif()
+			set(${package_name_var_out} ${package_name} PARENT_SCOPE)
+			set(${prefix_var_out} ${prefix} PARENT_SCOPE)
+			return()
+		endif()
+	endforeach() # for each header path component
+endfunction()
+
+# acme_process_sources(<target-name> <file1> <file2> ...)
+#
+# Processes ACME_SOURCE_AND_HEADE_FILES. Relative paths interpreted
+# relative to the current source dir.
+#
+# The function performs the following processing steps
+#
+# - collects public header files (files marked with //#acme interface or /*#acme interface*/)
+#   These files update the following target properties:
+#   - ACME_INTERFACE_FILE_TO_DESTINATION_MAP_KEYS/VALUES
+#
+# - processes //#{, //#}, //#. acme macros and generates #acme generated lines
+function(acme_process_sources target_name)
+	# Create normalized, abs paths of the files that do exist
+	unset(filelist)
+	foreach(i ${ARGN})
+		acme_make_absolute_source_filename(i)
+		if(EXISTS ${i} AND NOT IS_DIRECTORY ${i})
+			list(APPEND filelist ${i})
+		endif()
+	endforeach()
+
+	set(ACME_CMD_PUBLIC_HEADER "#acme interface")
+	set(ACME_CMD_GENERATED_LINE_SUFFIX "//#acme generated line")
+	set(ACME_CMD_BEGIN_PACKAGE_NAMESPACE "//#{")
+	set(ACME_CMD_END_PACKAGE_NAMESPACE "//#}")
+	set(ACME_CMD_USE_NAMESPACE_ALIASES_REGEX "//#[.]")
+	set(ACME_CMD_USE_NAMESPACE_ALIASES_LITERAL "//#.")
+
+	acme_source_group(${filelist})
+
+	#find interface files (public headers)
+	unset(interface_files)
+	unset(interface_file_destinations)
+	foreach(i ${filelist})
+		file(STRINGS ${i} v REGEX "^[ \t]*(//${ACME_CMD_PUBLIC_HEADER})|(/[*]#${ACME_CMD_PUBLIC_HEADER}[ \t]*[*]/)[ \t]*$")
+		if(v)
+			list(APPEND interface_files ${i})
+			list(APPEND interface_file_destinations "")
+		endif()
+	endforeach()
+	set_property(TARGET ${target_name} PROPERTY APPEND
+		ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_KEYS "${interface_files}")
+	set_property(TARGET ${target_name} PROPERTY APPEND
+		ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_VALUES "${interface_file_destinations}")
+
+	# read through all files
+	foreach(current_source_file ${filelist})
+		file(RELATIVE_PATH current_source_file_relpath ${CMAKE_CURRENT_SOURCE_DIR} ${current_source_file})
+		file(STRINGS ${current_source_file} current_file_list_of_include_lines REGEX "^[ \t]*#include[ \t]((\"[a-zA-Z0-9_/.-]+\")|(<[a-zA-Z0-9_/.-]+>))[ \t]*((//)|(/[*]))?.*$")
+		unset(current_file_comp_def_list)
+		foreach(current_line ${current_file_list_of_include_lines})
+			string(REGEX MATCH "#include[ \t]+((\"([a-zA-Z0-9_/.-]+)\")|(<([a-zA-Z0-9_/.-]+)>))" w ${current_line})
+			set(header "${CMAKE_MATCH_3}${CMAKE_MATCH_5}") # this is the string betwen "" or <>
+			# todo: here we should do something if the include mode of a header
+			# include "company/foo/bar/h.h"
+			# include "company.foo.bar/h.h"
+			# include "h.h"
+			# but first let's find the package (which can be an adjacent target)
+			# then decide if the include path is good or what to do with it
+
+			# find package name for this header
+			find_package_for_header(${header} name prefix)
+			if(name)
+				acme_dictionary_get(ACME_FIND_PACKAGE_NAME_TO_NAMESPACE_MAP ${package_name} namespace_dots)
+				if("${namespace_dots}" STREQUAL NOTFOUND)
+					set(namespace_dots ${package_name})
+				endif()
+				acme_dictionary_get(ACME_NAMESPACE_TO_ALIAS_MAP "${namespace_dots}" alias)
+				if(alias)
+					string(REPLACE "." "::" header_namespace ${namespace_dots})
+					if(alias STREQUAL ".")
+						set(s "using namespace ${header_namespace}")
+					else()
+						set(s "namespace ${alias} = ${header_namespace}")
+					endif()
+					list(APPEND current_file_comp_def_list "${s}")
+				endif()
+				# check the way this package is included and where the include dirs are located
+				string(REPLACE . / package_name_slash ${package_name})
+				unset(existing_package_dirs)
+				unset(package_include_dirs)
+				if(prefix)
+					# using a header from an installed package
+					set(package_include_dirs ${${prefix}_INCLUDE_DIRS})
+				else()
+					# using a header from a target
+					get_target_property(package_include_dirs ${package_name} INTERFACE_INCLUDE_DIRECTORIES)
+				endif()
+				unset(needs_package_path_dir)
+				unset(needs_package_name_dir)
+				foreach(pid ${package_include_dirs})
+					set(slash_dir "${pid}/${package_name_slash}")
+					set(dot_dir "${pid}/${package_name}")
+					if(IS_DIRECTORY "${slash_dir}")
+						set(needs_package_path_dir 1)
+						list(APPEND existing_package_dirs "${slash_dir}")
+					endif()
+					if(IS_DIRECTORY "${dot_dir}")
+						set(needs_package_name_dir 1)
+						list(APPEND existing_package_dirs "${dot_dir}")
+					endif()
+				endforeach()
+				if(NOT needs_package_path_dir AND NOT needs_package_name_dir)
+					message("The file '${current_source_file}' includes the file '${header}'")
+					if(prefix)
+						message("An installed package has been found '${package_name}' which is supposed to contain this header")
+					else()
+						message("A previously added target has been found '${package_name}' which is supposed to contain this header")
+					endif()
+					message("but it did not provide an include directory where the directory '${package_name}' or '${package_name_slash}' could be found.")
+				elseif(NOT "${package_name}" STREQUAL "${package_name_slash}" AND needs_package_path_dir AND needs_package_name_dir)
+					message("The file '${current_source_file}' includes the file '${header}'")
+					if(prefix)
+						message("An installed package has been found '${package_name}' which is supposed to contain this header")
+					else()
+						message("A previously added target has been found '${package_name}' which is supposed to contain this header")
+					endif()
+					message("but it it provided an include directory where both the directory '${package_name}' and '${package_name_slash}' could be located. This is ambiguous, make sure only one of the is present.")
+				else()
+					# it needs only one package dir. Check if the current way of including (a.b.c/d.h or a/b/c/d.h)
+					# is the same it needs.
+					string(FIND ${header} ${package_name}/ pn_idx)
+					string(FIND ${header} ${package_name_slash}/ pns_idx)
+
+					if(needs_package_path_dir AND NOT pns_idx EQUAL 0)
+						# there's a dir at a/b/c but the header path does not begin with a/b/c
+						message("The file '${current_source_file}' includes the file '${header}'")
+						if(prefix)
+							message("An installed package has been found '${package_name}' which is supposed to contain this header")
+						else()
+							message("A previously added target has been found '${package_name}' which is supposed to contain this header")
+						endif()
+						message("The package directory can be accessed at ${package_name_slash} but the actual include line does not start with that prefix.")
+						if(pn_idx EQUAL 0)
+							# but it does begin with a.b.c
+							message("However, it starts with ${package_name} so it could be rewritten automatically.")
+						endif()
+					endif()
+
+					if(needs_package_name_dir AND NOT pn_idx EQUAL 0)
+						# there's a dir at a.b.c but the header path does not begin with a.b.c
+						message("The file '${current_source_file}' includes the file '${header}'")
+						if(prefix)
+							message("An installed package has been found '${package_name}' which is supposed to contain this header")
+						else()
+							message("A previously added target has been found '${package_name}' which is supposed to contain this header")
+						endif()
+						message("The package directory can be accessed at ${package_name} but the actual include line does not start with that prefix.")
+						if(pns_idx EQUAL 0)
+							# but it does begin with a/b/c
+							message("However, it starts with ${package_name_slash} so it could be rewritten automatically.")
+						endif()
+					endif()
+				endif()
+			endif() # if a package / target was found
+		endforeach() # for each header in this file
+
+		unset(csf)
+		file(READ ${current_source_file} csf)
+
+		if(csf)
+			set(csf_orig "${csf}")
+			# remove generated lines
+			string(REGEX REPLACE "[^\n]*${ACME_CMD_GENERATED_LINE_SUFFIX}[^\n]*(\n|$)" "" csf "${csf}")
+
+			# generate acme macros
+			# _snippet_begin_namespace and _snippet_end_namespace
+			# will be strings like "namespace foo { namespace bar {" and "}}"
+			string(REPLACE "/" " { namespace " _snippet_begin_namespace ${ACME_PACKAGE_NAME_SLASH})
+			set(_snippet_begin_namespace "namespace ${_snippet_begin_namespace} {")
+			string(REGEX REPLACE "[^/]" "" _snippet_end_namespace ${ACME_PACKAGE_NAME_SLASH})
+			string(REPLACE "/" "}" _snippet_end_namespace "${_snippet_end_namespace}")
+			set(_snippet_end_namespace "}${_snippet_end_namespace}")
+
+			unset(s)
+			if(current_file_comp_def_list)
+				list(REMOVE_DUPLICATES current_file_comp_def_list)
+				foreach(i ${current_file_comp_def_list})
+					set(s "${s}${i}; ${ACME_CMD_GENERATED_LINE_SUFFIX}\n")
+				endforeach()
+			endif()
+
+			string(REGEX REPLACE "[ \t]*${ACME_CMD_BEGIN_PACKAGE_NAMESPACE}[ \t]*(\n|$)"
+				"${ACME_CMD_BEGIN_PACKAGE_NAMESPACE}\n${_snippet_begin_namespace} ${ACME_CMD_GENERATED_LINE_SUFFIX}\n${s}"
+				csf "${csf}")
+			string(REGEX REPLACE "[ \t]*${ACME_CMD_END_PACKAGE_NAMESPACE}[ \t]*(\n|$)"
+				"${ACME_CMD_END_PACKAGE_NAMESPACE}\n${_snippet_end_namespace} ${ACME_CMD_GENERATED_LINE_SUFFIX}\n"
+				csf "${csf}")
+			string(REGEX REPLACE "[ \t]*${ACME_CMD_USE_NAMESPACE_ALIASES_REGEX}[ \t]*(\n|$)"
+				"${ACME_CMD_USE_NAMESPACE_ALIASES_LITERAL}\n${s}"
+				csf "${csf}")
+			if(NOT "${csf_orig}" STREQUAL "${csf}")
+				file(WRITE ${current_source_file} "${csf}")
+			endif()
+		endif()
+	endforeach() # for each source file
+endfunction()

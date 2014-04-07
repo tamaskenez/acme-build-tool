@@ -19,12 +19,15 @@
 #     it's the arguments of the corresponding find_package call
 #     processed to be included in the config module
 
-# ACME_FIND_PACKAGE_NAMESPACE_TO_ALIAS_MAP_KEYS
-# ACME_FIND_PACKAGE_NAMESPACE_TO_ALIAS_MAP_VALUES
-#     list of dependent package namespaces and their
-#     aliases as specified in acme_find_package_calls
-#     The namespaces are dot-separated names.
-#     The aliases are namespace aliases (c-identifiers) or single dots
+# ACME_NAMESPACE_TO_ALIAS_MAP_KEYS
+# ACME_NAMESPACE_TO_ALIAS_MAP_VALUES
+#     list of dot-separated namespace names and corresponding aliases
+#     an alias can be a c-identifier or a single dot (for using namespace)
+
+# ACME_FIND_PACKAGE_NAME_TO_NAMESPACE_MAP_KEYS
+# ACME_FIND_PACKAGE_NAME_TO_NAMESPACE_MAP_VALUES
+#     map of those packages where a non-default
+#     namespace was given with acme_find_package(... NAMESPACE ...)
 
 # ACME_INIT_INCLUDE_DONE
 #     init.cmake included

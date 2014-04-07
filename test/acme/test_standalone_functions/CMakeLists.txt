@@ -142,5 +142,28 @@ set(ff
 list(SORT ff)
 assert_listequal(f ${ff})
 
+create_package_name_candidates_from_header_path("a" p)
+assert_empty_or_undefined(p)
+
+create_package_name_candidates_from_header_path("a.b" p)
+assert_empty_or_undefined(p)
+
+create_package_name_candidates_from_header_path("a./b" p)
+assert_empty_or_undefined(p)
+
+create_package_name_candidates_from_header_path("a./b" p)
+assert_empty_or_undefined(p)
+
+create_package_name_candidates_from_header_path("a/b.h" p)
+assert_listequal(p a)
+
+create_package_name_candidates_from_header_path("a/b/c.h" p)
+assert_listequal(p a a.b)
+
+create_package_name_candidates_from_header_path("a.b/c.h" p)
+assert_listequal(p a.b)
+
+create_package_name_candidates_from_header_path("a/b/c" p)
+assert_listequal(p a a.b)
 
 message(STATUS "Tests passed.")
