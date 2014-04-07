@@ -33,7 +33,14 @@
 
 # ACME_INTERFACE_FILE_TO_DESTINATION_MAP_KEYS
 # ACME_INTERFACE_FILE_TO_DESTINATION_MAP_VALUES
-#     Dictionary which maps interface files for this target
-#     to their destination (relative to include/<package-path>)
-# ACME_INTERFACE_TAGGED_BASE_DIRS
+# ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_KEYS
+# ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_VALUES
+#     Dictionaries which maps the target's interface files
+#     to their destination path (relative to include/<package-path>)
+#     The first map is for files added with acme_target_interface,
+#     the second map is for files added automatically (the files
+#     tagged with (//#acme interface or /*#acme interface*/)
+# ACME_INTERFACE_BASE_DIRS_FOR_AUTO_FILES
 #     the base dirs for the files tagged with '#acme interface'
+#     initialized in acme_add_executable/library
+#     to CMAKE_CURRENT_SOURCE_DIR and CMAKE_CURRENT_BINARY_DIR

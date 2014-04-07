@@ -247,8 +247,75 @@ function(acme_add_include_guard_if_needed file)
 	  #endif()
 endfunction()
 
-# acme_set_target_properties(<targe-name>)
+# acme_initialize_target(<targe-name>)
 # sets the target properties defined in an acme.config file for all acme targets
-macro(acme_set_target_properties _stp_target_name)
-	set_target_properties(${_stp_target_name} PROPERTIES DEBUG_POSTFIX "${ACME_DEBUG_POSTFIX}")
+macro(acme_initialize_target _stp_target_name)
+	set_target_properties(${_stp_target_name} PROPERTIES
+		ACME_INTERFACE_FILE_TO_DESTINATION_MAP_KEYS ""
+		ACME_INTERFACE_FILE_TO_DESTINATION_MAP_VALUES ""
+		ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_KEYS ""
+		ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_VALUES ""
+		ACME_INTERFACE_BASE_DIRS_FOR_AUTO_FILES "${CMAKE_CURRENT_SOURCE_DIR};${CMAKE_CURRENT_BINARY_DIR}"
+		DEBUG_POSTFIX "${ACME_DEBUG_POSTFIX}")
 endmacro()
+
+# acme_source_group(<file1> <file2>)
+#
+# Sets source groups for the files
+function(acme_source_group)
+#list of source files
+	foreach(i ${ARGN})
+		acme_get_project_relative_path_components(${i} dir filename)
+		if(dir STREQUAL NOTFOUND)
+			set(d external)
+		elseif("${dir}" STREQUAL "")
+			set(d sources)
+		else()
+			string(REPLACE "/" "\\" d "sources/${dir}")
+		endif()
+		list(APPEND source_group_${d}_files ${i})
+		set(source_group_${d}_name ${d})
+		list(APPEND source_groups ${d})
+	endforeach()
+	foreach(d ${source_groups})
+		source_group(${source_group_${d}_name} FILES ${source_group_${d}_files})
+	endforeach()
+endfunction()
+
+# for each automatically added interface file update the destination
+# based on the current ACME_INTERFACE_TAGGED_BASE_DIRS
+function(acme_update_target_interface_auto_file_destinations target_name)
+	get_target_property(map_KEYS ${target_name} ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_KEYS)
+	get_target_property(map_VALUES ${target_name} ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_VALUES)
+	get_target_property(bds ${target_name} ACME_INTERFACE_BASE_DIRS_FOR_TAGGED_FILES)
+	foreach(i ${v})
+		if(NOT IS_ABSOLUTE ${i})
+			# it it's not absolute check where this filename come from, should've been made absolute there
+			message(FATAL_ERROR "Internal error: this function expects absolute paths.")
+		endif()
+		# find the closest base dir
+		unset(best_relative)
+		unset(best_relative_length)
+		foreach(bd ${bds})
+			# check if inside
+			string(FIND "${i}" "${bd}" idx)
+			if(idx EQUAL 0)
+				# inside this, store relative path if it's the best
+				file(RELATIVE_PATH this_relative "${bd}" "${i}")
+				string(LENGTH ${this_relative} this_relative_length)
+				if(NOT DEFINED best_relative OR this_relative_length LESS best_relative_length)
+					set(best_relative "${this_relative}")
+					set(best_relative_length ${this_relative_length})
+				endif()
+			endif()
+		endforeach()
+		if(NOT DEFINED best_relative_length)
+			message(FATAL_ERROR "Interface file '${i}' is not located in any base dir specified with acme_target_interface() or in the default base dirs (current source and binary dirs).")
+		endif()
+		acme_dictionary_set(map ${i} ${best_relative})
+	endforeach()
+	set_target_properties(${target_name} PROPERTIES
+		ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_KEYS "${map_KEYS}"
+		ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_VALUES "${map_VALUES}"
+	)
+endfunction()

@@ -1,9 +1,18 @@
 # public utility functions and macros
 
 function(acme_print_var_core acpv.x acpv.name)
-	list(LENGTH ${acpv.x} acpv.l)
-	if(acpv.l EQUAL 0)
+	if(NOT DEFINED ${acpv.x})
+		message(STATUS "'${acpv.name}' is not defined")
+		return()
+	elseif("${acpv.x}" STREQUAL "")
 		message(STATUS "'${acpv.name}' is empty")
+		return()
+	endif()
+
+	list(LENGTH ${acpv.x} acpv.l)
+	
+	if(acpv.l EQUAL 0)
+		message(STATUS "'${acpv.name}' is an empty list")
 	elseif(acpv.l EQUAL 1)
 		message(STATUS "'${acpv.name}' = '${${acpv.x}}'")
 	else()
