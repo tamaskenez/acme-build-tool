@@ -1,0 +1,19 @@
+(1) current source and/or binary dir must match package path or name, public include dir must be there, delete install before build
+(2) if dep package is installed into include/package_name or path then must rewrite this include if needed
+(3) if dep package source does not match package_path but matches package_name rewrite it, else error
+
+
+include "company/foo/bar/my.h" (1)
+include "company.foo.bar/my.h" (1)
+include "company/foo/bar/installed.h" (2)
+include "company.foo.bar/installed.h" (2)
+include "company/foo/bar/othertarget.h" (3)
+include "company.foo.bar/othertarget.h" (3)
+
+for found packages check if
+- ${a.b.c_INCLUDE_DIRS(x)}/a/b/c is a directory
+- ${a.b.c_INCLUDE_DIRS(x)}/a.b.c is a directory
+
+for adjacent targets check if
+- ${interface include dirs}/a/b/c is a directory
+- ${interface include dirs}.a.b.c is a directory

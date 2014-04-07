@@ -291,19 +291,20 @@ function(acme_process_sources target_name)
 	unset(headers_found_to_package_names) # the corresponding package name
 	unset(headers_not_found) # headers already tested but not found as a package header
 
-#	# read through all files
-#	foreach(current_source_file ${filelist})
-#		file(RELATIVE_PATH current_source_file_relpath ${CMAKE_CURRENT_SOURCE_DIR} ${current_source_file})
-#		file(STRINGS ${current_source_file} current_file_list_of_include_lines REGEX "^[ \t]*#include[ \t]((\"[a-zA-Z0-9_/.-]+\")|(<[a-zA-Z0-9_/.-]+>))[ \t]*((//)|(/[*]))?.*$")
-#		unset(current_file_comp_def_list)
+	# read through all files
+	foreach(current_source_file ${filelist})
+		file(RELATIVE_PATH current_source_file_relpath ${CMAKE_CURRENT_SOURCE_DIR} ${current_source_file})
+		file(STRINGS ${current_source_file} current_file_list_of_include_lines REGEX "^[ \t]*#include[ \t]((\"[a-zA-Z0-9_/.-]+\")|(<[a-zA-Z0-9_/.-]+>))[ \t]*((//)|(/[*]))?.*$")
+		unset(current_file_comp_def_list)
 #		foreach(current_line ${current_file_list_of_include_lines})
 #			string(REGEX MATCH "#include[ \t]+((\"([a-zA-Z0-9_/.-]+)\")|(<([a-zA-Z0-9_/.-]+)>))" w ${current_line})
 #			set(header "${CMAKE_MATCH_3}${CMAKE_MATCH_5}") # this is the string betwen "" or <>
-#			# header must not use qualified package name for local headers
-#			string(REGEX MATCH "^${ACME_PACKAGE_NAME_SLASH}(/.*)?$" v ${header})
-#			if(v)
-#				message(FATAL_ERROR "Don't use qualified package path for including headers of the current package, in file '${current_source_file_relpath}', line '${current_line}'.")
-#			endif()
+#			# todo: here we should do something if the include mode of a header
+#			# include "company/foo/bar/h.h"
+#			# include "company.foo.bar/h.h"
+#			# include "h.h"
+#			# but first let's find the package (which can be an adjacent target)
+#			# then decide if the include path is good or what to do with it
 #
 #			# find package name for this header
 #			list(FIND headers_found ${header} hf_idx)
@@ -358,44 +359,44 @@ function(acme_process_sources target_name)
 #				list(APPEND current_file_comp_def_list "${s}")
 #			endif()
 #		endforeach() # for each header in this file
-#
-#		unset(csf)
-#		file(READ ${current_source_file} csf)
-#
-#		if(csf)
-#			set(csf_orig "${csf}")
-#			# remove generated lines
-#			string(REGEX REPLACE "[^\n]*${ACME_CMD_GENERATED_LINE_SUFFIX}[^\n]*(\n|$)" "" csf "${csf}")
-#
-#			# generate acme macros
-#			# _snippet_begin_namespace and _snippet_end_namespace
-#			# will be strings like "namespace foo { namespace bar {" and "}}"
-#			string(REPLACE "/" " { namespace " _snippet_begin_namespace ${ACME_PACKAGE_NAME_SLASH})
-#			set(_snippet_begin_namespace "namespace ${_snippet_begin_namespace} {")
-#			string(REGEX REPLACE "[^/]" "" _snippet_end_namespace ${ACME_PACKAGE_NAME_SLASH})
-#			string(REPLACE "/" "}" _snippet_end_namespace "${_snippet_end_namespace}")
-#			set(_snippet_end_namespace "}${_snippet_end_namespace}")
-#
-#			unset(s)
-#			if(current_file_comp_def_list)
-#				list(REMOVE_DUPLICATES current_file_comp_def_list)
-#				foreach(i ${current_file_comp_def_list})
-#					set(s "${s}${i}; ${ACME_CMD_GENERATED_LINE_SUFFIX}\n")
-#				endforeach()
-#			endif()
-#
-#			string(REGEX REPLACE "[ \t]*${ACME_CMD_BEGIN_PACKAGE_NAMESPACE}[ \t]*(\n|$)"
-#				"${ACME_CMD_BEGIN_PACKAGE_NAMESPACE}\n${_snippet_begin_namespace} ${ACME_CMD_GENERATED_LINE_SUFFIX}\n${s}"
-#				csf "${csf}")
-#			string(REGEX REPLACE "[ \t]*${ACME_CMD_END_PACKAGE_NAMESPACE}[ \t]*(\n|$)"
-#				"${ACME_CMD_END_PACKAGE_NAMESPACE}\n${_snippet_end_namespace} ${ACME_CMD_GENERATED_LINE_SUFFIX}\n"
-#				csf "${csf}")
-#			string(REGEX REPLACE "[ \t]*${ACME_CMD_USE_NAMESPACE_ALIASES_REGEX}[ \t]*(\n|$)"
-#				"${ACME_CMD_USE_NAMESPACE_ALIASES_LITERAL}\n${s}"
-#				csf "${csf}")
-#			if(NOT "${csf_orig}" STREQUAL "${csf}")
-#				file(WRITE ${current_source_file} "${csf}")
-#			endif()
-#		endif()
-#	endforeach() # for each source file
+
+		unset(csf)
+		file(READ ${current_source_file} csf)
+
+		if(csf)
+			set(csf_orig "${csf}")
+			# remove generated lines
+			string(REGEX REPLACE "[^\n]*${ACME_CMD_GENERATED_LINE_SUFFIX}[^\n]*(\n|$)" "" csf "${csf}")
+
+			# generate acme macros
+			# _snippet_begin_namespace and _snippet_end_namespace
+			# will be strings like "namespace foo { namespace bar {" and "}}"
+			string(REPLACE "/" " { namespace " _snippet_begin_namespace ${ACME_PACKAGE_NAME_SLASH})
+			set(_snippet_begin_namespace "namespace ${_snippet_begin_namespace} {")
+			string(REGEX REPLACE "[^/]" "" _snippet_end_namespace ${ACME_PACKAGE_NAME_SLASH})
+			string(REPLACE "/" "}" _snippet_end_namespace "${_snippet_end_namespace}")
+			set(_snippet_end_namespace "}${_snippet_end_namespace}")
+
+			unset(s)
+			if(current_file_comp_def_list)
+				list(REMOVE_DUPLICATES current_file_comp_def_list)
+				foreach(i ${current_file_comp_def_list})
+					set(s "${s}${i}; ${ACME_CMD_GENERATED_LINE_SUFFIX}\n")
+				endforeach()
+			endif()
+
+			string(REGEX REPLACE "[ \t]*${ACME_CMD_BEGIN_PACKAGE_NAMESPACE}[ \t]*(\n|$)"
+				"${ACME_CMD_BEGIN_PACKAGE_NAMESPACE}\n${_snippet_begin_namespace} ${ACME_CMD_GENERATED_LINE_SUFFIX}\n${s}"
+				csf "${csf}")
+			string(REGEX REPLACE "[ \t]*${ACME_CMD_END_PACKAGE_NAMESPACE}[ \t]*(\n|$)"
+				"${ACME_CMD_END_PACKAGE_NAMESPACE}\n${_snippet_end_namespace} ${ACME_CMD_GENERATED_LINE_SUFFIX}\n"
+				csf "${csf}")
+			string(REGEX REPLACE "[ \t]*${ACME_CMD_USE_NAMESPACE_ALIASES_REGEX}[ \t]*(\n|$)"
+				"${ACME_CMD_USE_NAMESPACE_ALIASES_LITERAL}\n${s}"
+				csf "${csf}")
+			if(NOT "${csf_orig}" STREQUAL "${csf}")
+				file(WRITE ${current_source_file} "${csf}")
+			endif()
+		endif()
+	endforeach() # for each source file
 endfunction()
