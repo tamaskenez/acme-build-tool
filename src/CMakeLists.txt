@@ -1,53 +1,41 @@
-
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 2.8.12)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/.acme/src/init.cmake)
-
 acme_initialize(@ACME_PACKAGE_NAME@)
 
 project(${ACME_PACKAGE_NAME})
 
-# You can call acme_find_package() here
-# the result variables of the find will be
-# automatically added to the corresponding ACME_* variable.
+# You can call find_package() or acme_find_package() here
+# acme_find_package works like find_package, plus
+# - lets you define namespace aliases
+# - lets you define default scope (PUBLIC or PRIVATE)
+# - lets you link to all the packages found in this directory
+#   with target_link_libraries(... ${ACME_FIND_PACKAGE_NAMES})
 
+# acme_add_library/executable works like add_library/executable, plus
+# - allows inline globbing, sets source groups,
+# - processes #acme macros, detects #acme interface files
+# - sets target properties (debug postfix)
+@ACME_ADD_TARGET_MACRO@(${ACME_PACKAGE_NAME} @ACME_LIBRARY_TYPE@
+	GLOB_RECURSE ${ACME_SOURCE_FILE_PATTERNS} ${ACME_HEADER_FILE_PATTERNS})
+
+# acme_target_link_libraries works like target_link_libraries, plus
+# - if the item is not a target but a package from acme_find_package
+#   or find_package, thencalls target_link_libraries, target_include_directories,
+#   target_compile_definitions and target_compile_options with
+#   the appropriate values
+# - accepts PACKAGES_FOUND to use all the packages found in this directory
+acme_target_link_libraries(${ACME_PACKAGE_NAME} ${ACME_FIND_PACKAGE_NAMES})
+
+# acme_target_interface adds further headers or other files (to be installed)
+# and also include directories to the target
+#acme_target_interface(${ACME_PACKAGE_NAME} ...)
+
+# - installs target, interface and config module
+acme_install(${ACME_PACKAGE_NAME})
 
 # For this macro you can also specify exclude patterns after EXCLUDE:
 # acme_add_include_guards(<patterns> EXCLUDE <patterns>) 
 acme_add_include_guards(*.h *.hpp *.hxx)
-
-# Create the list of files in ACME_SOURCE_AND_HEADER_FILES
-acme_add_files(
-	GLOB_RECURSE ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
-# Add additional public headers (e.g. generated ones)
-#acme_add_public_header(header DESTINATION dest)
-
-# Process files from ACME_SOURCE_AND_HEADER_FILES
-# - identify public headers
-# - process #acme directives)
-acme_process_sources()
-
-# Add include dirs and definitions after acme_process_sources()
-include_directories(
-	${CMAKE_CURRENT_SOURCE_DIR}
-	${ACME_FIND_PACKAGE_INCLUDE_DIRS}
-)
-
-add_definitions(${ACME_FIND_PACKAGE_DEFINITIONS})
-
-# acme_add_install performs the following operations
-# - adds target (add_executable or add_library)
-# - sets target properties
-# - sets target_link_libraries
-# - installs target, public headers and config module
-@ACME_ADD_TARGET_MACRO@(@ACME_LIBRARY_TYPE@)
-
-# Uncomment this to generate and install an 'all' header which includes
-# all the public headers
-# acme_generate_and_install_all_header(all.h)
-
-
 
 
