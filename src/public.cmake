@@ -246,3 +246,34 @@ function(acme_add_include_guards)
 	endforeach()
 endfunction()
 
+# acme_target_link_libraries for a given scope
+function(acme_target_link_libraries_scope targe_name scope)
+	unset(config)
+	foreach(i ${ARGN})
+	endforeach()
+endfunction()
+
+# acme_target_link_libraries(<target_name>
+#	[[PUBLIC|PRIVATE] <item> <item> ...])
+# calls target_link_libraries with the items, plus
+# - if the item is a package from a previous find_package
+#   or acme_find_package call then it behaves as if there were
+#   an imported target with the same name: the target_link_libraries,
+#   target_include_directories, target_compile_definitions and
+#   target_compile_options will be called with the appropriate values
+function(acme_target_link_libraries target_name)
+	set(scope PUBLIC) # default scope is public
+	unset(v)
+	foreach(i ${ARGN})
+		if("${i}" STREQUAL PUBLIC)
+			acme_target_link_libraries_mode(${target_name} ${scope} ${v})
+			set(scope PUBLIC)
+		elseif("${i}" STREQUAL PRIVATE)
+			acme_target_link_libraries_mode(${target_name} ${scope} ${v})
+			set(scope PRIVATE)
+		else()
+			list(APPEND v ${i})
+		endif()
+	endforeach()
+	acme_target_link_libraries_mode(${target_name} ${scope} ${v})
+endfunction()
