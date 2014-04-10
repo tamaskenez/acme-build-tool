@@ -21,7 +21,7 @@ project(${ACME_PACKAGE_NAME})
 
 # acme_target_link_libraries works like target_link_libraries, plus
 # - if the item is not a target but a package from acme_find_package
-#   or find_package, thencalls target_link_libraries, target_include_directories,
+#   or find_package, then calls target_link_libraries, target_include_directories,
 #   target_compile_definitions and target_compile_options with
 #   the appropriate values
 # - accepts PACKAGES_FOUND to use all the packages found in this directory

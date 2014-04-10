@@ -1,2 +1,5 @@
 no TARGET_NAME
 no ACME_PUBLIC_HEADER_FILES
+
+acme_update_target_interface_files
+public acme_process_sources
