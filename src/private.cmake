@@ -609,3 +609,78 @@ function(acme_process_sources target_name)
 		endif()
 	endforeach() # for each source file
 endfunction()
+# get_package_prefix(<var-out> <package-name>)
+# Packages (find and config modules) may prefix their
+# variables with original-case and mixed-case package names
+# This macro finds out which one is the correct. Fails
+# if inconsistency found.
+# Uses an elaborate heuristics.
+macro(get_package_prefix _gpp_prefix_var_out _gpp_package_name)
+	string(TOUPPER "${_gpp_package_name}" _gpp_package_name_upper)
+	if("${_gpp_package_name}" STREQUAL "${_gpp_package_name_upper}")
+		# original case == upper case
+		set(${_gpp_prefix_var_out} ${_gpp_package_name})
+	else()
+		unset(_gpp_postfix_upper)
+		unset(_gpp_postfix_original)
+		unset(_gpp_postfix_both)
+		set(${_gpp_prefix_var_out} ${_gpp_package_name}) # default
+		if(NOT ${_gpp_package_name}_FOUND)
+			if(NOT ${_gpp_package_name_upper}_FOUND)
+				message(FATAL_ERROR "Internal error: package '${_gpp_package_name}' was not found")
+			else()
+				# this postfix set only for the upper case
+				if(DEFINED ${_gpp_package_name}_FOUND)
+					message(FATAL_ERROR "Inconsistent variables for package '${_gpp_package_name}': ${_gpp_package_name_upper}_FOUND but NOT ${_gpp_package_name}_FOUND")
+				endif()
+				# new default
+				set(${_gpp_prefix_var_out} ${_gpp_package_name_upper})
+			endif()
+		else()
+			if(NOT ${_gpp_package_name_upper}_FOUND)
+				# this postfix set only for the original case
+				if(DEFINED ${_gpp_package_name_upper}_FOUND)
+					message(FATAL_ERROR "Inconsistent variables for package '${_gpp_package_name}': ${_gpp_package_name}_FOUND but NOT ${_gpp_package_name_upper}_FOUND")
+				endif()
+			else()
+				# this postfix set for both cases
+			endif()
+		endif()
+
+		foreach(_gpp_postfix
+			INCLUDE_DIR INCLUDE_DIRS
+			LIBRARY LIBRARIES
+			LIBRARY_DIR LIBRARY_DIRS
+			DEFINITIONS
+		)
+			if("${${_gpp_package_name}_${_gpp_postfix}}" STREQUAL "")
+				if("${${_gpp_package_name_upper}_${_gpp_postfix}}" STREQUAL "")
+					# this postfix has not been set, nothing to do
+				else()
+					# this postfix set only for the upper case
+					list(APPEND _gpp_postfix_upper ${_gpp_postfix})
+				endif()
+			else()
+				if("${${_gpp_package_name_upper}_${_gpp_postfix}}" STREQUAL "")
+					# this postfix set only for the original case
+					list(APPEND _gpp_postfix_original ${_gpp_postfix})
+				else()
+					# this postfix set for both cases
+					if("${${_gpp_package_name}_${_gpp_postfix}}" STREQUAL "${${_gpp_package_name_upper}_${_gpp_postfix}}")
+						list(APPEND _gpp_postfix_both ${_gpp_postfix})
+					else()
+						message(FATAL_ERROR "Inconsistent variables for package '${_gpp_package_name}': both '${_gpp_package_name}_${_gpp_postfix}' and '${_gpp_package_name_upper}_${_gpp_postfix}' are defined but they are different ( '${${_gpp_package_name}_${_gpp_postfix}}' and '${${_gpp_package_name_upper}_${_gpp_postfix}}')")
+					endif()
+				endif()
+			endif()
+		endforeach()
+		if(_gpp_postfix_upper AND _gpp_postfix_original)
+			message(FATAL_ERROR "Inconsistent variables for package '${_gpp_package_name}': for prefix '${_gpp_package_name}' these postfixes are defined: '${_gpp_postfix_original}', for prefix '${_gpp_package_name_upper}' these postfixes are defined: '${_gpp_postfix_upper}'")
+		endif()
+		if(_gpp_postfix_upper)
+			set(${_gpp_prefix_var_out} ${_gpp_package_name_upper})
+		elseif(_gpp_postfix_original)
+			set(${_gpp_prefix_var_out} ${_gpp_package_name})
+		endif()
+	endif()
+endmacro()
