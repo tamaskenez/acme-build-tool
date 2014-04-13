@@ -30,28 +30,46 @@ macro(acme_initialize _acme_package_name)
 	message(STATUS "ACME package name: ${ACME_PACKAGE_NAME}")
 endmacro()
 
-# same signature as find_package, plus acme specific extensions:
-#
-#     acme_find_package(<regular-find-package-args>
+#    acme_find_package(<package-name> <other-usual-find-package-args>
 #         [NAMESPACE <namespace>]
 #         [ALIAS .|<namespace-alias>]
 #         [PUBLIC|PRIVATE])
 #
-#    Use the NAMESPACE to override the package default derived namespace.
-#    The derived namespace is for example company::foo::bar if the package
-#    name is company.foo.bar
-#    <namespace> can either dot-separated or double-colon separated
-#    Recommended is the dot-separated format.
+# acme_find_package is a replacement for find_package. Differences:
 #
-#    Use the ALIAS to attach a namespace alias to the package's namespace.
-#    The alias will be used for the `//#{`, `//#}` and `//#.` acme macros
-#    <namespace-alias> can be either an identifier or a dot.
-#    Use the single dot ('.') to import the package's namespace into the local namespace.
-#    
-#    The keywords PUBLIC and PRIVATE specify public or private (default)
-#    packages. It affects the automatically generated config module.
-#    The PUBLIC or PRIVATE scope specifier can be overridden in
-#    target_link_libraries
+# - Calls find_package
+# - If package found creates import lib for the package (first checks
+#   whether the find module or config itself created an import lib)
+# - Remembers the find_package args to include in generated config modules
+# - Skips find_package and import lib creation if there's already
+#   a target with the same name.
+#
+# Use the ALIAS to attach a namespace alias to the package's namespace.
+# The alias will be used for the `//#{`, `//#}` and `//#.` acme macros
+# <namespace-alias> can be either an identifier or a dot.
+# Use the single dot ('.') to import the package's namespace into the local namespace.
+#
+# The C++ namespace alias declaration will be generated using
+# the package name as namespace (e.g. 'company::foo::bar' if the package
+# name is company.foo.bar)
+# Use the NAMESPACE keyword to override this default.
+# <namespace> can either dot-separated or double-colon separated
+# Recommended is the dot-separated format.
+#
+# The package (= target) names will be also appended to the global
+# variable ACME_FIND_PACKAGE_TARGETS.
+# This variable is a list of scope specifiers (PUBLIC or PRIVATE) and
+# target names: 'PUBLIC <target2> PRIVATE <target2> ...'. This variable
+# can be used ad a convenience to call target_link_libraries with
+# all the packages found:
+#
+#     target_link_libraries(<target> ${ACME_FIND_PACKAGE_TARGETS})
+#
+# The keywords PUBLIC and PRIVATE specify the  default scope
+# of the packages: public or private (default)
+# packages. It affects the automatically generated config module.
+# The PUBLIC or PRIVATE scope specifier can be overridden in
+# target_link_libraries
 
 macro(acme_find_package)
 	cmake_parse_arguments(
@@ -111,17 +129,29 @@ macro(acme_find_package)
 		message(FATAL_ERROR "Both PUBLIC and PRIVATE was specified.")
 	endif()
 
-	find_package(${_afp_args_filtered})
 	list(GET _afp_args_filtered 0 _afp_package_name) # original case package name
 	string(TOUPPER "${_afp_package_name}" _afp_package_name_upper) # upper case package name
 
-	if(${_afp_package_name}_FOUND OR ${_afp_package_name_upper}_FOUND)
+	# check if there's already a target with the same name
+	get_target_property(_afp_target_name ${_afp_package_name} NAME)
+
+	if(NOT _afp_target_name)
+		find_package(${_afp_args_filtered})
+		if(${_afp_package_name}_FOUND OR ${_afp_package_name_upper}_FOUND)
+			get_target_property(_afp_target_name ${_afp_package_name} NAME)
+		endif()
+	endif()
+
+	if(_afp_target_name OR ${_afp_package_name}_FOUND OR ${_afp_package_name_upper}_FOUND)
 		if(_AFP_PUBLIC)
 			set(_afp_scope PUBLIC)
+			set(_afp_scope_for_target_list PUBLIC)
 		elseif(_afp_private)
 			set(_afp_scope PRIVATE)
+			set(_afp_scope_for_target_list PRIVATE)
 		else()
 			unset(_afp_scope)
+			set(_afp_scope_for_target_list PRIVATE)
 		endif()
 
 		# prepare the _afp_args_filtered to be
@@ -164,7 +194,67 @@ macro(acme_find_package)
 			acme_dictionary_set(ACME_NAMESPACE_TO_ALIAS_MAP "${_afp_namespace_dots}" "${_AFP_ALIAS}")
 		endif()
 
-		list(APPEND ACME_FIND_PACKAGE_NAMES ${_afp_package_name})
+		# create import lib if needed
+		if(NOT _afp_target_name)
+			add_library(IMPORT ${_afp_package_name} UNKNOWN IMPORTED)
+			get_package_prefix(_afp_prefix ${_afp_package_name})
+			foreach(_afp_i ${${_afp_prefix}_INCLUDE_DIRS} ${${_afp_prefix}_INCLUDE_DIR})
+				set_property(TARGET ${_afp_package_name}
+					APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES
+					${_afp_i}
+				)
+			endforeach()
+			foreach(_afp_i ${${_afp_prefix}_DEFINITIONS})
+				string(FIND "${_afp_i}" "/D" _afp_idx1)
+				string(FIND "${_afp_i}" "-D" _afp_idx2)
+				if(_afp_idx1 EQUAL 0 OR _afp_idx2 EQUAL 0)
+					string(SUBTRING "${_afp_i}" 2 -1 _afp_k)
+					set_property(TARGET ${_afp_package_name}
+						APPEND PROPERTY INTERFACE_COMPILE_DEFINITIONS
+						${_afp_k}
+					)
+				else()
+					set_property(TARGET ${_afp_package_name}
+						APPEND PROPERTY INTERFACE_COMPILE_OPTIONS
+						${_afp_i}
+					)
+				endif()
+			endforeach()
+			unset(_afp_mode)
+			foreach(_afp_i ${${_afp_prefix}_LIBRARIES})
+				if(NOT DEFINED _afp_mode)
+					if("${_afp_i}" STREQUAL general)
+						set(_afp_mode general)
+					elseif("${_afp_i}" STREQUAL debug)
+						set(_afp_mode debug)
+					elseif("${_afp_i}" STREQUAL optimized)
+						set(_afp_mode optimized)
+					else()
+						set_property(TARGET ${_afp_package_name}
+							APPEND PROPERTY INTERFACE_LINK_LIBRARIES
+							${_afp_i})
+					endif()
+				else()
+					if(${_afp_mode} STREQUAL general)
+						set_property(TARGET ${_afp_package_name}
+							APPEND PROPERTY INTERFACE_LINK_LIBRARIES
+							${_afp_i})
+					elseif(${_afp_mode} STREQUAL debug)
+						set_property(TARGET ${_afp_package_name}
+							APPEND PROPERTY INTERFACE_LINK_LIBRARIES
+							$<$<CONFIG:Debug>:${_afp_i}>)
+					elseif(${_afp_mode} STREQUAL optimized)
+						set_property(TARGET ${_afp_package_name}
+							APPEND PROPERTY INTERFACE_LINK_LIBRARIES
+							$<$<NOT:$<CONFIG:Debug>>:${_afp_i}>)
+					else()
+						message(FATAL_ERROR "Internal error, invalid _afp_mode: ${_afp_mode}")
+					endif()
+					unset(_afp_mode)
+				endif()
+			endforeach()
+		endif()
+		list(APPEND ACME_FIND_PACKAGE_TARGETS ${_afp_scope_for_target_list} ${_afp_package_name})
 		set(ACME_FIND_PACKAGE_${_afp_package_name}_SCOPE "${_afp_scope}")
 		set(ACME_FIND_PACKAGE_${_afp_package_name}_ARGS ${_afp_args_config})
 	endif() # if package found
@@ -246,34 +336,3 @@ function(acme_add_include_guards)
 	endforeach()
 endfunction()
 
-# acme_target_link_libraries for a given scope
-function(acme_target_link_libraries_scope targe_name scope)
-	unset(config)
-	foreach(i ${ARGN})
-	endforeach()
-endfunction()
-
-# acme_target_link_libraries(<target_name>
-#	[[PUBLIC|PRIVATE] <item> <item> ...])
-# calls target_link_libraries with the items, plus
-# - if the item is a package from a previous find_package
-#   or acme_find_package call then it behaves as if there were
-#   an imported target with the same name: the target_link_libraries,
-#   target_include_directories, target_compile_definitions and
-#   target_compile_options will be called with the appropriate values
-function(acme_target_link_libraries target_name)
-	set(scope PUBLIC) # default scope is public
-	unset(v)
-	foreach(i ${ARGN})
-		if("${i}" STREQUAL PUBLIC)
-			acme_target_link_libraries_mode(${target_name} ${scope} ${v})
-			set(scope PUBLIC)
-		elseif("${i}" STREQUAL PRIVATE)
-			acme_target_link_libraries_mode(${target_name} ${scope} ${v})
-			set(scope PRIVATE)
-		else()
-			list(APPEND v ${i})
-		endif()
-	endforeach()
-	acme_target_link_libraries_mode(${target_name} ${scope} ${v})
-endfunction()

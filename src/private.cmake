@@ -1,37 +1,5 @@
 # private functions and macros to be used by public_api.cmake
 
-# acme_target_link_libraries for a single package from a previous
-# acme_find_package or find_package call
-function(acme_target_link_libraries_single_package _target_name _package_name _scope)
-	if("${_scope}" STREQUAL "")
-		set(_scope ACME_FIND_PACKAGE_${_package_name}_SCOPE)
-	endif()
-	if("${_scope}" STREQUAL "")
-		set(_scope PRIVATE)
-	endif()
-
-	string(TOUPPER "${_package_name}" package_name_upper) # upper case package name
-	if(${package_name_upper}_FOUND) # use upper case, if set
-		set(prefix ${package_name_upper})
-	else()
-		set(prefix ${_package_name})
-	endif()
-
-	target_include_directories("${_target_name}" ${_scope} ${${prefix}_INCLUDE_DIRS})
-	target_link_libraries("${_target_name}" ${_scope} ${${prefix}_LIBRARIES})
-
-	foreach(i ${${prefix}_DEFINITIONS})
-		string(FIND "${i}" "/D" idx1)
-		string(FIND "${i}" "-D" idx2)
-			if(idx1 EQUAL 0 OR idx2 EQUAL 0)
-				string(SUBTRING "${i}" 2 -1 k)
-				target_link_compile_definitions("${_target_name}" ${_scope} "${k}")
-			else()
-				target_link_compile_options("${_target_name}" ${_scope} "${i)")
-			endif()
-	endforeach()
-endfunction()
-
 # acme_process_add_target_unprocessed_args(<files_var_out> <globs_var_out> <glob_recurses_var_out>
 #	<arg1> <arg> ... FILES ... GLOB ... GLOB_RECURSE ...)
 # collect the items in the tail list:
@@ -609,6 +577,7 @@ function(acme_process_sources target_name)
 		endif()
 	endforeach() # for each source file
 endfunction()
+
 # get_package_prefix(<var-out> <package-name>)
 # Packages (find and config modules) may prefix their
 # variables with original-case and mixed-case package names
