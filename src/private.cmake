@@ -119,18 +119,18 @@ endfunction()
 
 # make relative file names absolute by prefixing with CMAKE_CURRENT_SOURCE_DIR
 # also normalize path (../ will be resolved)
-macro(acme_make_absolute_source_filename _var)
-	if(NOT IS_ABSOLUTE "${${_var}}")
-		set(${_var} "${CMAKE_CURRENT_SOURCE_DIR}/${${_var}}")
+macro(acme_make_absolute_source_filename _masf_var)
+	if(NOT IS_ABSOLUTE "${${_masf_var}}")
+		set(${_masf_var} "${CMAKE_CURRENT_SOURCE_DIR}/${${_masf_var}}")
 	endif()
-	get_filename_component(${_var} "${${_var}}" ABSOLUTE)
+	get_filename_component(${_masf_var} "${${_masf_var}}" ABSOLUTE)
 endmacro()
 
 # make relative file names absolute by prefixing with CMAKE_CURRENT_SOURCE_DIR
 # also normalize path (../ will be resolved)
-macro(acme_get_absolute_source_filename _var _path)
-	set(${_var} "${_path}")
-	acme_make_absolute_source_filename(${_var})
+macro(acme_get_absolute_source_filename _gasf_var _path)
+	set(${_gasf_var} "${_path}")
+	acme_make_absolute_source_filename(${_gasf_var})
 endmacro()
 
 
@@ -219,11 +219,9 @@ endfunction()
 # sets the target properties defined in an acme.config file for all acme targets
 macro(acme_initialize_target _stp_target_name)
 	set_target_properties(${_stp_target_name} PROPERTIES
-		ACME_INTERFACE_FILE_TO_DESTINATION_MAP_KEYS ""
-		ACME_INTERFACE_FILE_TO_DESTINATION_MAP_VALUES ""
-		ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_KEYS ""
-		ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_VALUES ""
-		ACME_INTERFACE_BASE_DIRS_FOR_AUTO_FILES "${CMAKE_CURRENT_SOURCE_DIR};${CMAKE_CURRENT_BINARY_DIR}"
+		ACME_PUBLIC_HEADER_TO_DESTINATION_MAP_KEYS ""
+		ACME_PUBLIC_HEADER_TO_DESTINATION_MAP_VALUES ""
+		ACME_PUBLIC_HEADER_ROOTS "${CMAKE_CURRENT_SOURCE_DIR};${CMAKE_CURRENT_BINARY_DIR}"
 		DEBUG_POSTFIX "${ACME_DEBUG_POSTFIX}")
 endmacro()
 

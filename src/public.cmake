@@ -336,3 +336,178 @@ function(acme_add_include_guards)
 	endforeach()
 endfunction()
 
+acme_target_public_headers(superlib GLOB api/*.h ADD_DIR)
+acme_target_public_headers(superlib GLOB api/*.h ADD_PARENT)
+acme_target_public_headers(superlib FILES a.h b.h c/d.h )
+#     acme_target_public_headers(<target> FILES <file> <file> ...
+#                               [ROOT <root-dir>]
+#                               [ADD_DIR|ADD_PARENT])
+#     acme_target_public_headers(<target> <GLOB|GLOB_RECURSE> <pattern> <pattern>
+#                               [ROOT <root-dir>]
+#                               [ADD_DIR|ADD_PARENT])
+#     acme_target_public_headers(<target> PUBLIC
+#                               ROOT <root-dir>
+#                               [ADD_DIR|ADD_PARENT])
+#
+# Specifies public headers to install. Optionally adds an include directory.
+#
+# You can can specify a list of files (first signature), globbing patterns (second signature) or
+# refer to the header files marked with '//#acme public' (or '/*acme public*/')
+#
+# The files will be installed by copying the source directory hierarchy from <root-dir> to
+# the package include dir (${CMAKE_INSTALL_PREFIX}/include/<package-dir>, where package-dir
+# can be company/foo/bar or company.foo.bar, see acme_initialize).
+# All files specified must be under the <root-dir> (immediately or indirectly).
+#
+# Files, globbing expression and <root-dir> with relative paths will be interpreted relative to the
+# current source dir (and not ROOT)
+#
+# If you can omit ROOT it will default to the parent dir of the specified files.
+# You can omit ROOT with the GLOB|GLOB_RECURSE signature only if there's only one
+# globbing expression or all have the same parent dir.
+#
+# The function can also add an private include directory. ADD_DIR adds <root-dir>, ADD_PARENT
+# adds parent of <root-dir>.
+#
+# Examples:
+#
+# The current source dir will be the ROOT.
+#     acme_target_include_files(mylib FILES h1.h a/h2.h ADD_DIR)
+#
+# Access the header from within the project with #include "h.h"
+#     acme_target_include_files(mylib FILES a/h.h ADD_DIR)
+#
+# Access the header from within the project with #include "mylib/h.h"
+#     acme_target_include_files(mylib FILES a/mylib/h.h ADD_PARENT)
+#
+# Wrong, because ${CMAKE_CURRENT_SOURCE_DIR}/h3.h is not ${CMAKE_CURRENT_SOURCE_DIR}/a:
+#     acme_target_include_files(mylib FILES h3.h ROOT a)
+#
+# Wrong, because globbing expressions have different parent dirs:
+#     acme_target_include_files(mylib GLOB a/*.h b/.*h)
+#
+function(acme_add_public_headers target_name)
+	set(argless_modes PUBLIC)
+	set(multiarg_modes FILES;GLOB;GLOB_RECURSE)
+	set(modes ${multiarg_modes} ${argless_modes})
+	cmake_parse_arguments(
+		APH
+		"${argless_modes};ADD_PARENT;ADD_DIR"
+		ROOT
+		"${multiarg_modes}"
+		${ARGN})
+	unset(mode)
+	foreach(i ${modes})
+		if(APH_${i})
+			list(APPEND mode ${i})
+		endif()
+	endforeach()
+	list(LENGTH mode l)
+	if(NOT l EQUAL 1)
+		message(FATAL_ERROR "Specify exactly one of these keywords: ${modes}")
+	endif()
+
+	if(APH_ADD_PARENT AND APH_ADD_DIR)
+		message(FATAL_ERROR "Both ADD_PARENT and ADD_DIR are specified.")
+	endif()
+	if(APH_ROOT)
+		acme_make_absolute_source_filename(APH_ROOT)
+	endif()
+	foreach(m GLOB GLOB_RECURSE FILES)
+	if(APH_${m})
+		unset(l)
+		foreach(i ${APH_${m}})
+			acme_make_absolute_source_filename(i)
+			list(APPEND l ${i})
+		endforeach()
+		set(APH_${m} ${l})
+	endif()
+
+	unset(implicit_roots)
+	if(${mode} STREQUAL GLOB OR ${mode} STREQUAL "GLOB_RECURSE")
+		file(${mode} APH_FILES ${APH_${mode}})
+		acme_remove_acme_dir_files(APH_FILES)
+
+		foreach(i ${APH_${mode}})
+			get_filename_component(fc ${i} DIRECTORY)
+			list(APPEND implicit_roots ${fc})
+		endforeach()
+		list(REMOVE_DUPLICATES implicit_roots)
+		if(APH_ROOT)
+			# must be all implicit roots below it
+			foreach(i ${implicit_roots})
+				string(FIND ${i} ${APH_ROOT} v)
+				if(NOT v EQUAL 0)
+					message(FATAL_ERROR "All globbing expressions must be below the specified ROOT, this is invalid: '${i}'")
+				endif()
+			endforeach()
+		else()
+			# all implicit roots must be the same
+			list(LENGTH implicit_roots l)
+			if(NOT l EQUAL 1)
+				message(FATAL_ERROR "No ROOT specified and the globbing expressions have ambiguous roots: '${implicit_roots}'")
+			endif()
+			set(APH_ROOT ${implicit_roots})
+		endif()
+	endif()
+
+	if(${mode} STREQUAL FILES)
+		# determine ROOT
+		if(NOT APH_ROOT)
+			foreach(i ${APH_FILES})
+				if(NOT APH_ROOT)
+					get_filename_component(APH_ROOT ${i} DIRECTORY)
+				else()
+					# find the common prefix of APH_ROOT and ${i}
+					while(1)
+						string(FIND ${i} ${APH_ROOT} idx)
+						if(idx EQUAL 0)
+							break() # already a prefix
+						endif()
+						# try shorter root
+						get_filename_component(APH_ROOT2 ${APH_ROOT} DIRECTORY)
+						if("${APH_ROOT2}" STREQUAL "${APH_ROOT") # no change
+							message(FATAL_ERROR "No common root found for FILES, specify ROOT")
+						endif()
+						set(APH_ROOT ${APH_ROOT2})
+					endif()
+				endif()
+				# check if derived aph root is below source or binary dir
+				string(FIND ${APH_ROOT} ${CMAKE_CURRENT_SOURCE_DIR} idx1)
+				string(FIND ${APH_ROOT} ${CMAKE_CURRENT_BINARY_DIR} idx2)
+				if(NOT idx1 EQUAL 0 AND NOT idx2 EQUAL 0)
+					message(FATAL_ERROR "Derived ROOT is not below current source or binary dir. Specify explicit ROOT")
+				endif()
+			endforeach()
+		endif()
+		foreach(i ${APH_FILES})
+			# ${i} must be within root
+			string(FIND ${i} ${APH_ROOT} idx)
+			if(NOT idx EQUAL 0)
+				message(FATAL_ERROR "File '${i}'' is not below ROOT '${APH_ROOT}'")
+			endif()
+			# destination of ${i} is the relative path to APH_ROOT
+			file(RELATIVE_PATH rp ${APH_ROOT} ${i})
+			acme_dictionary_set(TARGET ${target_name} ACME_PUBLIC_HEADERS_TO_DESTINATION_MAP ${i} ${dest_dir})
+			list(APPEND ACME_PUBLIC_HEADER_FILES ${i})
+		endforeach()
+	elseif(${mode} STREQUAL PUBLIC)
+		if(NOT APH_ROOT)
+			message("missing PUBLIC argument")
+		endif()
+		set_property(TARGET ${target_name}
+			APPEND PROPERTY ACME_PUBLIC_HEADER_ROOTS ${APH_ROOT})
+	else()
+		message(FATAL_ERROR "Invalid keyword: ${mode}")
+	endif()
+	# add include dir
+	unset(dir)
+	if(APH_ADD_PARENT)
+		get_filename_component(dir ${APH_ROOT} DIRECTORY)
+	elseif(APH_ADD_DIR)
+		set(dir ${APH_ROOT})
+	endif()
+	if(dir)
+		target_include_directories(${target_name} BEFORE PRIVATE ${dir})
+	endif()
+endfunction()

@@ -34,16 +34,12 @@
 
 # Target properties
 
-# ACME_INTERFACE_FILE_TO_DESTINATION_MAP_KEYS
-# ACME_INTERFACE_FILE_TO_DESTINATION_MAP_VALUES
-# ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_KEYS
-# ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_VALUES
-#     Dictionaries which maps the target's interface files
-#     to their destination path (relative to include/<package-path>)
-#     The first map is for files added with acme_target_interface,
-#     the second map is for files added automatically (the files
-#     tagged with (//#acme interface or /*#acme interface*/)
-# ACME_INTERFACE_BASE_DIRS_FOR_AUTO_FILES
-#     the base dirs for the files tagged with '#acme interface'
+# ACME_PUBLIC_HEADER_TO_DESTINATION_MAP_KEYS
+# ACME_PUBLIC_HEADER_TO_DESTINATION_MAP_KEYS
+#     list of public headers and their destinations
+#     as specified by acme_target_public_headers
+#     headers marked by //#acme public are not listed here
+# ACME_PUBLIC_HEADER_ROOTS
+#     the roots specified by acme_target_public_headers(...PUBLIC)
 #     initialized in acme_add_executable/library
-#     to CMAKE_CURRENT_SOURCE_DIR and CMAKE_CURRENT_BINARY_DIR
+#     with CMAKE_CURRENT_SOURCE_DIR and CMAKE_CURRENT_BINARY_DIR

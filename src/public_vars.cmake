@@ -14,7 +14,4 @@ define_property(VARIABLE PROPERTY ACME_FIND_PACKAGE_TARGETS
 	BRIEF_DOCS "List of package names loaded with acme_find_package."
 	FULL_DOCS "For each package found an import library target is created.")
 
-define_property(TARGET PROPERTY ACME_INTERFACE_FILES
-	BRIEF_DOCS "Interface files, like public headers"
-	FULL_DOCS "Files either marked with //#acme interface or added with acme_target_interface")
 

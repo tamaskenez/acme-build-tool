@@ -7,10 +7,11 @@ project(${ACME_PACKAGE_NAME})
 
 # You can call find_package() or acme_find_package() here
 # acme_find_package works like find_package, plus
+# - creates import libraries
 # - lets you define namespace aliases
-# - lets you define default scope (PUBLIC or PRIVATE)
-# - lets you link to all the packages found in this directory
-#   with target_link_libraries(... ${ACME_FIND_PACKAGE_NAMES})
+# - lets you define default scope (PUBLIC or PRIVATE) when
+#   linking with all the packages found so far using
+#   target_link_libraries(... ${ACME_FIND_PACKAGE_TARGETS})
 
 # acme_add_library/executable works like add_library/executable, plus
 # - allows inline globbing, sets source groups,
@@ -25,11 +26,11 @@ project(${ACME_PACKAGE_NAME})
 #   target_compile_definitions and target_compile_options with
 #   the appropriate values
 # - accepts PACKAGES_FOUND to use all the packages found in this directory
-acme_target_link_libraries(${ACME_PACKAGE_NAME} ${ACME_FIND_PACKAGE_NAMES})
+acme_target_link_libraries(${ACME_PACKAGE_NAME} ${ACME_FIND_PACKAGE_TARGETS})
 
 # acme_target_interface adds further headers or other files (to be installed)
 # and also include directories to the target
-#acme_target_interface(${ACME_PACKAGE_NAME} ...)
+# acme_target_interface_files(${ACME_PACKAGE_NAME} ...)
 
 # - installs target, interface and config module
 acme_install(${ACME_PACKAGE_NAME})
