@@ -28,33 +28,6 @@
 		endif()
 	endmacro()
 
-	# Install the files in ACME_PUBLIC_HEADER_FILES to CMAKE_INSTALL_PREFIX/path
-	# where path is the package path (company/foo/bar) postfixed with
-	# the relative path of the header in CMAKE_CURRENT_SOURCE_DIR
-	# or CMAKE_CURRENT_BINARY_DIR
-	# If the file is outside the two, it will be installed into CMAKE_INSTALL_PREFIX.
-	function(acme_install_public_headers)
-		foreach(i ${ACME_PUBLIC_HEADER_FILES})
-			# normalize
-			if(NOT IS_ABSOLUTE ${i})
-				set(i ${CMAKE_CURRENT_SOURCE_DIR}/${i})
-			endif()
-			get_filename_component(i ${i} ABSOLUTE)
-
-			acme_dictionary_get(ACME_PUBLIC_HEADERS_TO_DESTINATION_MAP ${i} dir)
-			if(dir STREQUAL NOTFOUND)
-				acme_get_project_relative_path_components(${i} dir name)
-			endif()
-			if(dir STREQUAL NOTFOUND)
-				message("External public header ${i} will be installed to include/${ACME_PACKAGE_NAME_SLASH}")
-				set(dir "")
-			endif()
-			install(FILES ${i} DESTINATION include/${ACME_PACKAGE_NAME_SLASH}/${dir})
-		endforeach()
-	endfunction()
-
-
-
 	macro(acme_install_config_module)
 		unset(ACME_CONFIG_MODULE_FIND_PACKAGE_ARGS)
 		unset(ACME_DEPENDENT_PACKAGES_PUBLIC)
@@ -169,67 +142,6 @@
 		set(ACME_PUBLIC_HEADERS_TO_DESTINATION_MAP_VALUES ${ACME_PUBLIC_HEADERS_TO_DESTINATION_MAP_VALUES} PARENT_SCOPE)
 		set(ACME_PUBLIC_HEADER_FILES ${ACME_PUBLIC_HEADER_FILES} PARENT_SCOPE)
 	endfunction()
-
-	function(acme_set_interface_properties)
-		foreach(i ${ACME_FIND_PACKAGE_NAMES})
-			if(${ACME_FIND_PACKAGE_${i}_SCOPE} STREQUAL PUBLIC)
-				foreach(j ${i}_DEFINITIONS)
-					string(FIND "${j}" "/D" idx1)
-					string(FIND "${j}" "-D" idx2)
-					if(idx1 EQUAL 0 OR idx2 EQUAL 0)
-						string(SUBTRING "${j}" 2 -1 k)
-						set_property(TARGET ${ACME_TARGET_NAME}
-							APPEND PROPERTY INTERFACE_COMPILE_DEFINITIONS
-							"${k}"
-						)
-					else()
-						set_property(TARGET ${ACME_TARGET_NAME}
-							APPEND PROPERTY INTERFACE_COMPILE_OPTIONS
-							"${j}"
-						)
-					endif()
-				endforeach()
-				foreach(j ${i}_INCLUDE_DIRS)
-					set_property(TARGET ${ACME_TARGET_NAME}
-						APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES
-						"${j}"
-					)
-				endforeach()
-			endif()
-			if(ACME_TARGET_TYPE STREQUAL STATIC OR ${ACME_FIND_PACKAGE_${i}_SCOPE} STREQUAL PUBLIC)
-			endif()
-		endforeach()
-	endfunction()
-
-	macro(acme_add_target_and_install_all)
-		acme_add_target(${ACME_TARGET_TYPE} ${ACME_TARGET_NAME}
-			${ACME_SOURCE_AND_HEADER_FILES}
-		)
-
-		target_link_libraries(${ACME_TARGET_NAME}
-			${ACME_FIND_PACKAGE_LIBRARIES})
-
-		install(TARGETS ${ACME_TARGET_NAME}
-			RUNTIME DESTINATION ${ACME_INSTALL_TARGETS_RUNTIME_DESTINATION}
-			ARCHIVE DESTINATION ${ACME_INSTALL_TARGETS_ARCHIVE_DESTINATION}
-			LIBRARY DESTINATION ${ACME_INSTALL_TARGETS_LIBRARY_DESTINATION})
-
-		if(ACME_IS_LIBRARY)
-			acme_set_interface_properties()
-		endif()
-
-		set_property(TARGET ${ACME_TARGET_NAME}
-			APPEND/APPEND_STRING
-			PROPERTY INTERFACE_LINK_LIBRARIES
-		)
-
-		# Installs public headers keeping source directory structure
-		acme_install_public_headers()
-
-		# Generates and installs config module
-		acme_install_config_module()
-	endmacro()
-
 
 	# remove duplicates from a libraries listing
 	# handles debug/optimized/general keywords

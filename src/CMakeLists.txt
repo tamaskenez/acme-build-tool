@@ -11,7 +11,7 @@ project(${ACME_PACKAGE_NAME})
 # - lets you define namespace aliases
 # - lets you define default scope (PUBLIC or PRIVATE) when
 #   linking with all the packages found so far using
-#   target_link_libraries(... ${ACME_FIND_PACKAGE_TARGETS})
+#   target_link_libraries(... ${ACME_FIND_PACKAGE_SCOPED_TARGETS})
 
 # acme_add_library/executable works like add_library/executable, plus
 # - allows inline globbing, sets source groups,
@@ -26,7 +26,7 @@ project(${ACME_PACKAGE_NAME})
 #   target_compile_definitions and target_compile_options with
 #   the appropriate values
 # - accepts PACKAGES_FOUND to use all the packages found in this directory
-acme_target_link_libraries(${ACME_PACKAGE_NAME} ${ACME_FIND_PACKAGE_TARGETS})
+target_link_libraries(${ACME_PACKAGE_NAME} ${ACME_FIND_PACKAGE_SCOPED_TARGETS})
 
 # acme_target_interface adds further headers or other files (to be installed)
 # and also include directories to the target

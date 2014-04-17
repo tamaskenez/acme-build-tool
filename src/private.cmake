@@ -222,6 +222,7 @@ macro(acme_initialize_target _stp_target_name)
 		ACME_PUBLIC_HEADER_TO_DESTINATION_MAP_KEYS ""
 		ACME_PUBLIC_HEADER_TO_DESTINATION_MAP_VALUES ""
 		ACME_PUBLIC_HEADER_ROOTS "${CMAKE_CURRENT_SOURCE_DIR};${CMAKE_CURRENT_BINARY_DIR}"
+		ACME_PUBLIC_HEADERS_FROM_SOURCES ""
 		DEBUG_POSTFIX "${ACME_DEBUG_POSTFIX}")
 endmacro()
 
@@ -246,44 +247,6 @@ function(acme_source_group)
 	foreach(d ${source_groups})
 		source_group(${source_group_${d}_name} FILES ${source_group_${d}_files})
 	endforeach()
-endfunction()
-
-# for each automatically added interface file update the destination
-# based on the current ACME_INTERFACE_TAGGED_BASE_DIRS
-function(acme_update_target_interface_auto_file_destinations target_name)
-	get_target_property(map_KEYS ${target_name} ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_KEYS)
-	get_target_property(map_VALUES ${target_name} ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_VALUES)
-	get_target_property(bds ${target_name} ACME_INTERFACE_BASE_DIRS_FOR_TAGGED_FILES)
-	foreach(i ${v})
-		if(NOT IS_ABSOLUTE ${i})
-			# it it's not absolute check where this filename come from, should've been made absolute there
-			message(FATAL_ERROR "Internal error: this function expects absolute paths.")
-		endif()
-		# find the closest base dir
-		unset(best_relative)
-		unset(best_relative_length)
-		foreach(bd ${bds})
-			# check if inside
-			string(FIND "${i}" "${bd}" idx)
-			if(idx EQUAL 0)
-				# inside this, store relative path if it's the best
-				file(RELATIVE_PATH this_relative "${bd}" "${i}")
-				string(LENGTH ${this_relative} this_relative_length)
-				if(NOT DEFINED best_relative OR this_relative_length LESS best_relative_length)
-					set(best_relative "${this_relative}")
-					set(best_relative_length ${this_relative_length})
-				endif()
-			endif()
-		endforeach()
-		if(NOT DEFINED best_relative_length)
-			message(FATAL_ERROR "Interface file '${i}' is not located in any base dir specified with acme_target_interface() or in the default base dirs (current source and binary dirs).")
-		endif()
-		acme_dictionary_set(map ${i} ${best_relative})
-	endforeach()
-	set_target_properties(${target_name} PROPERTIES
-		ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_KEYS "${map_KEYS}"
-		ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_VALUES "${map_VALUES}"
-	)
 endfunction()
 
 # The header path is expected to be either like
@@ -399,7 +362,7 @@ function(acme_process_sources target_name)
 		endif()
 	endforeach()
 
-	set(ACME_CMD_PUBLIC_HEADER "#acme interface")
+	set(ACME_CMD_PUBLIC_HEADER "#acme public")
 	set(ACME_CMD_GENERATED_LINE_SUFFIX "//#acme generated line")
 	set(ACME_CMD_BEGIN_PACKAGE_NAMESPACE "//#{")
 	set(ACME_CMD_END_PACKAGE_NAMESPACE "//#}")
@@ -409,19 +372,15 @@ function(acme_process_sources target_name)
 	acme_source_group(${filelist})
 
 	#find interface files (public headers)
-	unset(interface_files)
-	unset(interface_file_destinations)
+	unset(public_headers)
 	foreach(i ${filelist})
 		file(STRINGS ${i} v REGEX "^[ \t]*(//${ACME_CMD_PUBLIC_HEADER})|(/[*]#${ACME_CMD_PUBLIC_HEADER}[ \t]*[*]/)[ \t]*$")
 		if(v)
-			list(APPEND interface_files ${i})
-			list(APPEND interface_file_destinations "")
+			list(APPEND public_headers ${i})
 		endif()
 	endforeach()
 	set_property(TARGET ${target_name} PROPERTY APPEND
-		ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_KEYS "${interface_files}")
-	set_property(TARGET ${target_name} PROPERTY APPEND
-		ACME_INTERFACE_AUTO_FILE_TO_DESTINATION_MAP_VALUES "${interface_file_destinations}")
+		ACME_PUBLIC_HEADERS_FROM_SOURCES "${public_headers}")
 
 	# read through all files
 	foreach(current_source_file ${filelist})
@@ -651,3 +610,66 @@ macro(get_package_prefix _gpp_prefix_var_out _gpp_package_name)
 		endif()
 	endif()
 endmacro()
+
+	# Install the files in ACME_PUBLIC_HEADER_FILES to CMAKE_INSTALL_PREFIX/path
+	# where path is the package path (company/foo/bar) postfixed with
+	# the relative path of the header in CMAKE_CURRENT_SOURCE_DIR
+	# or CMAKE_CURRENT_BINARY_DIR
+	# If the file is outside the two, it will be installed into CMAKE_INSTALL_PREFIX.
+function(acme_install_public_headers_from_target_add_public_headers target_name)
+	get_target_property(header_paths ${target_name} ACME_PUBLIC_HEADER_TO_DESTINATION_MAP_KEYS)
+	foreach(hp ${header_paths})
+		acme_dictionary_get(TARGET ${target_name} ACME_PUBLIC_HEADER_TO_DESTINATION_MAP ${hp} dest)
+		if(dest STREQUAL NOTFOUND)
+			message(FATAL_ERROR "Internal error: public header ${hp} no value found for key in map.")
+		endif()
+		install(FILES ${hp} DESTINATION ${ACME_INCLUDE_DIR}/${ACME_PACKAGE_INCLUDE_DIR}/${dest})
+	endforeach()
+endfunction()
+
+#     acme_get_nearest_public_header_relative_dir target_name(<target_name> <header_file> <best_reldir_var_out>)
+#
+# For a given header file <header_file> selects the nearest root (from target's ACME_PUBLIC_HEADER_ROOTS)
+# and returns the relative path to that root
+# The nearest root is which contains the header file and results in the shortest relative dir
+function(acme_get_nearest_public_header_relative_dir target_name header_path best_root_out)
+	get_target_property(roots ${target_name} ACME_PUBLIC_HEADER_ROOTS)
+	# find the closest base dir
+	unset(best_relative)
+	unset(best_relative_length)
+	foreach(bd ${roots})
+		# check if inside
+		string(FIND "${i}" "${bd}" idx)
+		if(idx EQUAL 0)
+			# inside this, store relative path if it's the best
+			file(RELATIVE_PATH this_relative "${bd}" "${i}")
+			string(LENGTH ${this_relative} this_relative_length)
+			if(NOT DEFINED best_relative OR this_relative_length LESS best_relative_length)
+				set(best_relative "${this_relative}")
+				set(best_relative_length ${this_relative_length})
+			endif()
+		endif()
+	endforeach()
+	if(NOT DEFINED best_relative_length)
+		message(FATAL_ERROR "Public header '${i}' is not located in any root specified with acme_target_public_headers(...PUBLIC...) or in the default roots (current source and binary dirs).")
+	endif()
+	set(${best_reldir_var_out} ${best_relative} PARENT_SCOPE)
+endfunction()
+
+function(acme_install_public_headers_marked_public target_name)
+	get_target_property(header_paths ${target_name} ACME_PUBLIC_HEADERS_FROM_SOURCES)
+	foreach(hp ${header_paths})
+		# find the root which is closest to the root
+		# error if it's not below any root
+		acme_get_nearest_public_header_relative_dir(${target_name} ${hp} bestreldir)
+		install(FILES ${hp} DESTINATION ${ACME_INCLUDE_DIR}/${ACME_PACKAGE_INCLUDE_DIR}/${bestreldir})
+	endforeach()
+endfunction()
+
+function(acme_generate_and_install_config_module target_name)
+	message(FATAL_ERROR todo)
+endfunction()
+
+function(acme_add_custom_command_to_early_install_public_headers target_name)
+	message(FATAL_ERROR todo)
+endfunction()

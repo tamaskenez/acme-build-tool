@@ -1,10 +1,15 @@
-# acme_initialize(<package-name>)
+# acme_initialize(<package-name> [INCLUDE_DIR_SLASH|INCLUDE_DIR_DOT])
 #
 # Initialize acme package for the current directory.
 # <package-name> is interpeted as a dot-separated
 # list of package name components (e.g. company.foo.bar)
 # A single component package name 'mycomponent' is also
 # a valid package name.
+#
+# Specify INCLUDE_DIR_SLASH(default) or INCLUDE_DIR_DOT to
+# control where the public headers will be installed, e.g.:
+# ${CMAKE_PREFIX_PATH}/include/company/foo/bar or
+# ${CMAKE_PREFIX_PATH}/include/company.foo.bar.
 #
 # This macro:
 #
@@ -16,16 +21,32 @@
 # of package name components, (like in Java/Python/Go). The package
 # name will be used for these purposes:
 #
-# - defines the install location of the interface files (public headers)
-#   The interface files will be installed into
-#   ${CMAKE_INSTALL_PREFIX}/include/${ACME_PACKAGE_NAME[_SLASH]}
+# - defines the install location of the public headers
+#   The public headers will be installed into
+#   ${CMAKE_INSTALL_PREFIX}/${ACME_INCLUDE_DIR}/${ACME_PACKAGE_INCLUDE_DIR}
 # - can be used as the C++ namespace for this package
 #   (see acme macros like //#{, //#}, //#., //#acme namespace)
 macro(acme_initialize _acme_package_name)
+	
+	cmake_parse_arguments(
+		ACME_INITIALIZE
+		"INCLUDE_DIR_DOT;INCLUDE_DIR_SLASH"
+		""
+		""
+		${ARGN})
+
+	if(ACME_INITIALIZE_INCLUDE_DIR_DOT AND ACME_INITIALIZE_INCLUDE_DIR_SLASH)
+		message(FATAL_ERROR "Both INCLUDE_DIR_DOT and INCLUDE_DIR_SLASH are specified.")
+	endif()
+
 	set(ACME_PACKAGE_NAME ${_acme_package_name})
 	string(REPLACE "." "/" ACME_PACKAGE_NAME_SLASH ${ACME_PACKAGE_NAME})
 
-	set(ACME_TARGET_NAME ${ACME_PACKAGE_NAME})
+	if(ACME_INITIALIZE_INCLUDE_DIR_DOT)
+		set(ACME_PACKAGE_INCLUDE_DIR ${ACME_PACKAGE_NAME})
+	else()
+		set(ACME_PACKAGE_INCLUDE_DIR ${ACME_PACKAGE_NAME_SLASH})
+	endif()
 
 	message(STATUS "ACME package name: ${ACME_PACKAGE_NAME}")
 endmacro()
@@ -57,13 +78,13 @@ endmacro()
 # Recommended is the dot-separated format.
 #
 # The package (= target) names will be also appended to the global
-# variable ACME_FIND_PACKAGE_TARGETS.
+# variable ACME_FIND_PACKAGE_SCOPED_TARGETS.
 # This variable is a list of scope specifiers (PUBLIC or PRIVATE) and
 # target names: 'PUBLIC <target2> PRIVATE <target2> ...'. This variable
 # can be used ad a convenience to call target_link_libraries with
 # all the packages found:
 #
-#     target_link_libraries(<target> ${ACME_FIND_PACKAGE_TARGETS})
+#     target_link_libraries(<target> ${ACME_FIND_PACKAGE_SCOPED_TARGETS})
 #
 # The keywords PUBLIC and PRIVATE specify the  default scope
 # of the packages: public or private (default)
@@ -254,7 +275,7 @@ macro(acme_find_package)
 				endif()
 			endforeach()
 		endif()
-		list(APPEND ACME_FIND_PACKAGE_TARGETS ${_afp_scope_for_target_list} ${_afp_package_name})
+		list(APPEND ACME_FIND_PACKAGE_SCOPED_TARGETS ${_afp_scope_for_target_list} ${_afp_package_name})
 		set(ACME_FIND_PACKAGE_${_afp_package_name}_SCOPE "${_afp_scope}")
 		set(ACME_FIND_PACKAGE_${_afp_package_name}_ARGS ${_afp_args_config})
 	endif() # if package found
@@ -510,4 +531,26 @@ function(acme_add_public_headers target_name)
 	if(dir)
 		target_include_directories(${target_name} BEFORE PRIVATE ${dir})
 	endif()
+endfunction()
+
+#     acme_install(<target-name>)
+#
+# Installs
+# - target
+# - public headers specified with acme_target_public_headers or //#acme public
+# - automatically generated config module
+# - public headers will be installed by a custom command right after build
+#   to make the public headers accessible to other targets before the
+#   install phase
+function(acme_install target_name)
+
+	install(TARGETS ${target_name}
+		RUNTIME DESTINATION ${ACME_INSTALL_TARGETS_RUNTIME_DESTINATION}
+		ARCHIVE DESTINATION ${ACME_INSTALL_TARGETS_ARCHIVE_DESTINATION}
+		LIBRARY DESTINATION ${ACME_INSTALL_TARGETS_LIBRARY_DESTINATION})
+
+	acme_install_public_headers_from_target_add_public_headers(target_name)
+	acme_install_public_headers_marked_public(target_name)
+	acme_generate_and_install_config_module(target_name)
+	acme_add_custom_command_to_early_install_public_headers(target_name)
 endfunction()

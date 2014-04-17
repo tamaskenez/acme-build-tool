@@ -35,11 +35,15 @@
 # Target properties
 
 # ACME_PUBLIC_HEADER_TO_DESTINATION_MAP_KEYS
-# ACME_PUBLIC_HEADER_TO_DESTINATION_MAP_KEYS
+# ACME_PUBLIC_HEADER_TO_DESTINATION_MAP_VALUES
 #     list of public headers and their destinations
 #     as specified by acme_target_public_headers
 #     headers marked by //#acme public are not listed here
+
 # ACME_PUBLIC_HEADER_ROOTS
 #     the roots specified by acme_target_public_headers(...PUBLIC)
 #     initialized in acme_add_executable/library
 #     with CMAKE_CURRENT_SOURCE_DIR and CMAKE_CURRENT_BINARY_DIR
+
+# ACME_PUBLIC_HEADERS_FROM_SOURCES
+#     list of public headers marked as //#acme public

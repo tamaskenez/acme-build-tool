@@ -16,3 +16,7 @@ set(ACME_INSTALL_TARGETS_RUNTIME_DESTINATION bin)
 set(ACME_INSTALL_TARGETS_ARCHIVE_DESTINATION lib)
 set(ACME_INSTALL_TARGETS_LIBRARY_DESTINATION lib)
 
+# the install destination of the public headers
+# public headers will be installed below this dir
+# e.g. into ${CMAKE_INSTALL_PREFIX}/${ACME_INCLUDE_DIR}/${ACME_PACKAGE_INCLUDE_DIR}
+set(ACME_INCLUDE_DIR include)
