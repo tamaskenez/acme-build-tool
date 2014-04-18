@@ -616,15 +616,20 @@ endmacro()
 	# the relative path of the header in CMAKE_CURRENT_SOURCE_DIR
 	# or CMAKE_CURRENT_BINARY_DIR
 	# If the file is outside the two, it will be installed into CMAKE_INSTALL_PREFIX.
-function(acme_install_public_headers_from_target_add_public_headers target_name)
+function(acme_get_listed_public_headers_and_destinations target_name headers_out destinations_out)
+	unset(hs)
+	unset(ds)
 	get_target_property(header_paths ${target_name} ACME_PUBLIC_HEADER_TO_DESTINATION_MAP_KEYS)
 	foreach(hp ${header_paths})
 		acme_dictionary_get(TARGET ${target_name} ACME_PUBLIC_HEADER_TO_DESTINATION_MAP ${hp} dest)
 		if(dest STREQUAL NOTFOUND)
 			message(FATAL_ERROR "Internal error: public header ${hp} no value found for key in map.")
 		endif()
-		install(FILES ${hp} DESTINATION ${ACME_INCLUDE_DIR}/${ACME_PACKAGE_INCLUDE_DIR}/${dest})
+		list(APPEND hs ${hp})
+		list(APPEND ds ${dest})
 	endforeach()
+	set(${headers_out} ${hs} PARENT_SCOPE)
+	set(${destinations_out} ${ds} PARENT_SCOPE)
 endfunction()
 
 #     acme_get_nearest_public_header_relative_dir target_name(<target_name> <header_file> <best_reldir_var_out>)
@@ -656,13 +661,16 @@ function(acme_get_nearest_public_header_relative_dir target_name header_path bes
 	set(${best_reldir_var_out} ${best_relative} PARENT_SCOPE)
 endfunction()
 
-function(acme_install_public_headers_marked_public target_name)
+function(acme_get_marked_public_headers_and_destinations target_name headers_out destinations_out)
+	unset(hs)
+	unset(ds)
 	get_target_property(header_paths ${target_name} ACME_PUBLIC_HEADERS_FROM_SOURCES)
 	foreach(hp ${header_paths})
 		# find the root which is closest to the root
 		# error if it's not below any root
 		acme_get_nearest_public_header_relative_dir(${target_name} ${hp} bestreldir)
-		install(FILES ${hp} DESTINATION ${ACME_INCLUDE_DIR}/${ACME_PACKAGE_INCLUDE_DIR}/${bestreldir})
+		list(APPEND hs ${hp})
+		list(APPEND ds ${bestreldir})
 	endforeach()
 endfunction()
 
@@ -670,6 +678,3 @@ function(acme_generate_and_install_config_module target_name)
 	message(FATAL_ERROR todo)
 endfunction()
 
-function(acme_add_custom_command_to_early_install_public_headers target_name)
-	message(FATAL_ERROR todo)
-endfunction()

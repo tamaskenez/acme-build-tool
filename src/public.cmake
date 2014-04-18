@@ -549,8 +549,47 @@ function(acme_install target_name)
 		ARCHIVE DESTINATION ${ACME_INSTALL_TARGETS_ARCHIVE_DESTINATION}
 		LIBRARY DESTINATION ${ACME_INSTALL_TARGETS_LIBRARY_DESTINATION})
 
-	acme_install_public_headers_from_target_add_public_headers(target_name)
-	acme_install_public_headers_marked_public(target_name)
+	# get list of headers and destinations specified with acme_target_public_headers
+	acme_get_listed_public_headers_and_destinations(target_name headers_out destinations_out)
+	# assert the lengths
+	list(LENGTH headers_out n)
+	list(LENGTH destinations_out m)
+	if(NOT n EQUAL m)
+		message(FATAL_ERROR "Internal error, lists returned by acme_get_listed_public_headers_and_destinations have different lengths.")
+	endif()
+
+	# get lit of headers and destinations marked with //#acme public or /*#acme public*/
+	acme_get_marked_public_headers_and_destinations(target_name headers2_out destinations2_out)
+	# assert the lengths
+	list(LENGTH headers2_out n2)
+	list(LENGTH destinations2_out m2)
+	if(NOT n2 EQUAL m2)
+		message(FATAL_ERROR "Internal error, lists returned by acme_get_marked_public_headers_and_destinations have different lengths.")
+	endif()
+
+	# combine the two lists
+	list(APPEND headers_out ${headers2_out})
+	list(APPEND destinations_out ${destinations2_out})
+	list(LENGTH headers_out n)
+
+	# install and also add custom command to early-install it during build
+	set(script_filename ${CMAKE_CURRENT_BINARY_DIR}/${ACME_BINARY_DIR}/${target_name}/install_public_headers.cmake)
+	file(REMOVE ${script_filename})
+	if(NOT n EQUAL 0)
+		math(EXPR n_minus_1 "${n}-1")
+		foreach(i 0 ${n_minus_1})
+			list(GET headers_out ${i} header)
+			list(GET destinations_out ${i} dest)
+			install(FILES ${header} DESTINATION ${ACME_INCLUDE_DIR}/${ACME_PACKAGE_INCLUDE_DIR}/${dest})
+			file(APPEND ${script_filename}
+				"configure_file(\"${header}\" \"${ACME_INCLUDE_DIR}/${ACME_PACKAGE_INCLUDE_DIR}/${dest}\" COPYONLY)\n")
+		endforeach()
+	endif()
+
+	add_custom_command(TARGET ${target_name} POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -P ${script_filename}
+		COMMENT "Early-installing public headers of target '${target_name}'"
+		VERBATIM)
+
 	acme_generate_and_install_config_module(target_name)
-	acme_add_custom_command_to_early_install_public_headers(target_name)
 endfunction()
