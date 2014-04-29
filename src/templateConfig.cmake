@@ -4,12 +4,15 @@ unset(@_name@_DEFINITIONS)
 unset(@_name@_RUNTIME_LIBRARIES)
 unset(@_name@_RUNTIME_LIBRARY_DIRS)
 
-set(@_name@_INSTALL_PREFIX ${CMAKE_CURRENT_LIST_DIR}/@ACME_INSTALL_PREFIX_FROM_CONFIG_MODULE@)
-get_filename_component(@_name@_INSTALL_PREFIX ${@_name@_INSTALL_PREFIX} ABSOLUTE)
+# recover CMAKE_INSTALL_PREFIX
+get_filename_component(@_name@_INSTALL_PREFIX "${CMAKE_CURRENT_LIST_DIR}/@ACME_INSTALL_PREFIX_FROM_CONFIG_MODULE@" ABSOLUTE)
 
 set(@_name@_DEPENDENT_PACKAGES_PUBLIC @ACME_DEPENDENT_PACKAGES_PUBLIC@)
+
+# private packages will be needed if this is a static library
 set(@_name@_DEPENDENT_PACKAGES_PRIVATE @ACME_DEPENDENT_PACKAGES_PRIVATE@)
 
+# find_package args for the dependent packages
 @ACME_CONFIG_MODULE_FIND_PACKAGE_ARGS@
 
 unset(_errmsg)
