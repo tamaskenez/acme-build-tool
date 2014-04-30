@@ -551,12 +551,14 @@ function(acme_install target_name)
 		LIBRARY DESTINATION ${ACME_INSTALL_TARGETS_LIBRARY_DESTINATION})
 
 	# get list of headers and destinations specified with acme_target_public_headers
-	acme_get_listed_public_headers_and_destinations(${target_name} headers_out destinations_out)
+	get_target_property(headers_out ${target_name} ACME_PUBLIC_HEADER_TO_DESTINATION_MAP_KEYS)
+	get_target_property(destinations_out ${target_name} ACME_PUBLIC_HEADER_TO_DESTINATION_MAP_VALUES)
+
 	# assert the lengths
 	list(LENGTH headers_out n)
 	list(LENGTH destinations_out m)
 	if(NOT n EQUAL m)
-		message(FATAL_ERROR "Internal error, lists returned by acme_get_listed_public_headers_and_destinations have different lengths.")
+		message(FATAL_ERROR "Internal error, ACME_PUBLIC_HEADER_TO_DESTINATION_MAP_KEYS/VALUES have different lengths.")
 	endif()
 
 	# get lit of headers and destinations marked with //#acme public or /*#acme public*/

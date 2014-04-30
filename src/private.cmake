@@ -340,7 +340,7 @@ endfunction()
 
 # acme_process_sources(<target-name> <file1> <file2> ...)
 #
-# Processes ACME_SOURCE_AND_HEADE_FILES. Relative paths interpreted
+# Processes the source files listed after the target name. Relative paths interpreted
 # relative to the current source dir.
 #
 # The function performs the following processing steps
@@ -348,7 +348,7 @@ endfunction()
 # - collects public header files (files marked with //#acme interface or /*#acme interface*/)
 #   These files update the following target properties:
 #   - ACME_INTERFACE_FILE_TO_DESTINATION_MAP_KEYS/VALUES
-#
+# - adds source files to source groups
 # - processes //#{, //#}, //#. acme macros and generates #acme generated lines
 function(acme_process_sources target_name)
 	# Create normalized, abs paths of the files that do exist
@@ -369,7 +369,7 @@ function(acme_process_sources target_name)
 
 	acme_source_group(${filelist})
 
-	#find interface files (public headers)
+	# find interface files (public headers)
 	unset(public_headers)
 	foreach(i ${filelist})
 		file(STRINGS ${i} v REGEX "^[ \t]*(//${ACME_CMD_PUBLIC_HEADER})|(/[*]#${ACME_CMD_PUBLIC_HEADER}[ \t]*[*]/)[ \t]*$")
@@ -382,7 +382,6 @@ function(acme_process_sources target_name)
 
 	# read through all files
 	foreach(current_source_file ${filelist})
-		file(RELATIVE_PATH current_source_file_relpath ${CMAKE_CURRENT_SOURCE_DIR} ${current_source_file})
 		file(STRINGS ${current_source_file} current_file_list_of_include_lines REGEX "^[ \t]*#include[ \t]((\"[a-zA-Z0-9_/.-]+\")|(<[a-zA-Z0-9_/.-]+>))[ \t]*((//)|(/[*]))?.*$")
 		unset(current_file_comp_def_list)
 		foreach(current_line ${current_file_list_of_include_lines})
@@ -412,7 +411,8 @@ function(acme_process_sources target_name)
 					endif()
 					list(APPEND current_file_comp_def_list "${s}")
 				endif()
-				# check the way this package is included and where the include dirs are located
+				# BEGIN: check the way this package is included and where the include dirs are located
+				# the following lines (up to END: ...) has no actual effect except warning messages
 				string(REPLACE . / package_name_slash ${package_name})
 				unset(existing_package_dirs)
 				unset(package_include_dirs)
@@ -489,6 +489,7 @@ function(acme_process_sources target_name)
 						endif()
 					endif()
 				endif()
+				# END: check the way this package is included and where the include dirs are located
 			endif() # if a package / target was found
 		endforeach() # for each header in this file
 
@@ -609,29 +610,6 @@ macro(acme_get_package_prefix _gpp_prefix_var_out _gpp_package_name)
 	endif()
 endmacro()
 
-	# Install the files in ACME_PUBLIC_HEADER_FILES to CMAKE_INSTALL_PREFIX/path
-	# where path is the package path (company/foo/bar) postfixed with
-	# the relative path of the header in CMAKE_CURRENT_SOURCE_DIR
-	# or CMAKE_CURRENT_BINARY_DIR
-	# If the file is outside the two, it will be installed into CMAKE_INSTALL_PREFIX.
-function(acme_get_listed_public_headers_and_destinations target_name headers_out destinations_out)
-	unset(hs)
-	unset(ds)
-	get_target_property(header_map_KEYS ${target_name} ACME_PUBLIC_HEADER_TO_DESTINATION_MAP_KEYS)
-	get_target_property(header_map_VALUES ${target_name} ACME_PUBLIC_HEADER_TO_DESTINATION_MAP_VALUES)
-
-	foreach(hp ${header_map_KEYS})
-		acme_dictionary_get(header_map ${hp} dest)
-		if(dest STREQUAL NOTFOUND)
-			message(FATAL_ERROR "Internal error: public header ${hp} no value found for key in map.")
-		endif()
-		list(APPEND hs ${hp})
-		list(APPEND ds ${dest})
-	endforeach()
-	set(${headers_out} ${hs} PARENT_SCOPE)
-	set(${destinations_out} ${ds} PARENT_SCOPE)
-endfunction()
-
 #     acme_get_nearest_public_header_relative_dir target_name(<target_name> <header_file> <best_reldir_var_out>)
 #
 # For a given header file <header_file> selects the nearest root (from target's ACME_PUBLIC_HEADER_ROOTS)
@@ -667,7 +645,7 @@ function(acme_get_marked_public_headers_and_destinations target_name headers_out
 	get_target_property(header_paths ${target_name} ACME_PUBLIC_HEADERS_FROM_SOURCES)
 
 	foreach(hp ${header_paths})
-		# find the root which is closest to the root
+		# find the root which is closest to hp
 		# error if it's not below any root
 		acme_get_nearest_public_header_relative_dir(${target_name} ${hp} bestreldir)
 		list(APPEND hs ${hp})

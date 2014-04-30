@@ -3,13 +3,26 @@ function(acme_add_include_guard_if_needed_core file)
 function(acme_add_include_guard_if_needed file)
 function(acme_source_group)
 
+# Testing: function(acme_process_sources target_name)
+#
+# Create a project
+# - add 3 source files
+#   - one marked with /*#acme public*/
+#   - one marked with //#acme public
+#   - one not marked
+# - verify that the target property ACME_PUBLIC_HEADERS_FROM_SOURCES contains the abs path of the marked files and nothing else
+# - find 2 packages (from external projects), one installed to a.b.c, other to a/b/c, define using namespace and alias for them, use functions from them. Must compile
+# - find 2 packages (from same project), one installed to a.b.c, other to a/b/c, define using namespace and alias for them, use functions from them. Must compile
+
+# Testing: function(acme_get_nearest_public_header_relative_dir target_name header_path best_root_out)
+# - with acme_target_public_headers add a public root to a/b
+# - add marked public headers to ./h1.h, a/h2.h, a/b/h3.h, a/b/c/h4.h and also to binary dir/d/h5.h
+# - verify this function returns ., a, a/b, a/b and binary dir, resp.
+
+# Testing: function(acme_get_marked_public_headers_and_destinations target_name headers_out destinations_out)
+# same as acme_get_nearest_public_header_relative_dir but returns the entire list
+
 # need to write tests for these:
-macro(acme_initialize_target _stp_target_name)
-function(acme_find_package_for_header header package_name_var_out prefix_var_out)
-function(acme_process_sources target_name)
-function(acme_get_listed_public_headers_and_destinations target_name headers_out destinations_out)
-function(acme_get_nearest_public_header_relative_dir target_name header_path best_root_out)
-function(acme_get_marked_public_headers_and_destinations target_name headers_out destinations_out)
 macro(acme_initialize _acme_package_name)
 macro(acme_find_package)
 macro(acme_add_executable _aae_name)
