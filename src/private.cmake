@@ -253,7 +253,7 @@ endfunction()
 #     a.b.c/d/e/f.h and then the package name could be a.b.c
 # or
 #     a/b/c/d/e/f.h and then the package name could be a, a.b, ... a.b.c.d.e
-function(create_package_name_candidates_from_header_path header candidates_var_out)
+function(acme_create_package_name_candidates_from_header_path header candidates_var_out)
 	set(${candidates_var_out} PARENT_SCOPE)
 
 	# if no slash
@@ -300,7 +300,7 @@ function(create_package_name_candidates_from_header_path header candidates_var_o
 	set(${candidates_var_out} ${package_names} PARENT_SCOPE)
 endfunction()
 
-# find_package_for_header <header_path> <package_name_var_out> <prefix_var_out>
+# acme_find_package_for_header <header_path> <package_name_var_out> <prefix_var_out>
 # It tries to interpret the first part of the header_path
 # as a reference to a package name, then tries
 # to find either a package (previously found by
@@ -310,11 +310,11 @@ endfunction()
 # - if a target found: a dot-separated package name = target name and prefix = ""
 # - if a package found: a dot-separated package name and a prefix that can be used to query XXX_INCLUDE_DIRS variables
 # - empty variables in both output variables if nothing found
-function(find_package_for_header header package_name_var_out prefix_var_out)
+function(acme_find_package_for_header header package_name_var_out prefix_var_out)
 	set(${package_name_var_out} PARENT_SCOPE)
 	set(${prefix_var_out} PARENT_SCOPE)
 
-	create_package_name_candidates(header package_names)
+	acme_create_package_name_candidates_from_header_path(header package_names)
 	if(NOT package_names)
 		return()
 	endif()
@@ -379,7 +379,7 @@ function(acme_process_sources target_name)
 			list(APPEND public_headers ${i})
 		endif()
 	endforeach()
-	set_property(TARGET ${target_name} PROPERTY APPEND
+	set_property(TARGET ${target_name} APPEND PROPERTY
 		ACME_PUBLIC_HEADERS_FROM_SOURCES "${public_headers}")
 
 	# read through all files
@@ -398,7 +398,7 @@ function(acme_process_sources target_name)
 			# then decide if the include path is good or what to do with it
 
 			# find package name for this header
-			find_package_for_header(${header} name prefix)
+			acme_find_package_for_header(${header} name prefix)
 			if(name)
 				acme_dictionary_get(ACME_FIND_PACKAGE_NAME_TO_NAMESPACE_MAP ${package_name} namespace_dots)
 				if("${namespace_dots}" STREQUAL NOTFOUND)
@@ -535,13 +535,13 @@ function(acme_process_sources target_name)
 	endforeach() # for each source file
 endfunction()
 
-# get_package_prefix(<var-out> <package-name>)
+# acme_get_package_prefix(<var-out> <package-name>)
 # Packages (find and config modules) may prefix their
 # variables with original-case and mixed-case package names
 # This macro finds out which one is the correct. Fails
 # if inconsistency found.
 # Uses an elaborate heuristics.
-macro(get_package_prefix _gpp_prefix_var_out _gpp_package_name)
+macro(acme_get_package_prefix _gpp_prefix_var_out _gpp_package_name)
 	string(TOUPPER "${_gpp_package_name}" _gpp_package_name_upper)
 	if("${_gpp_package_name}" STREQUAL "${_gpp_package_name_upper}")
 		# original case == upper case
@@ -646,7 +646,7 @@ function(acme_get_nearest_public_header_relative_dir target_name header_path bes
 	unset(best_relative_length)
 	foreach(bd ${roots})
 		# check if inside
-		string(FIND "${i}" "${bd}" idx)
+		string(FIND "${header_path}" "${bd}" idx)
 		if(idx EQUAL 0)
 			# inside this, store relative path if it's the best
 			file(RELATIVE_PATH this_relative "${bd}" "${i}")
@@ -658,7 +658,7 @@ function(acme_get_nearest_public_header_relative_dir target_name header_path bes
 		endif()
 	endforeach()
 	if(NOT DEFINED best_relative_length)
-		message(FATAL_ERROR "Public header '${i}' is not located in any root specified with acme_target_public_headers(...PUBLIC...) or in the default roots (current source and binary dirs).")
+		message(FATAL_ERROR "Public header '${header_path}' is not located in any root specified with acme_target_public_headers(...PUBLIC...) or in the default roots (current source and binary dirs).")
 	endif()
 	set(${best_reldir_var_out} ${best_relative} PARENT_SCOPE)
 endfunction()
@@ -667,6 +667,7 @@ function(acme_get_marked_public_headers_and_destinations target_name headers_out
 	unset(hs)
 	unset(ds)
 	get_target_property(header_paths ${target_name} ACME_PUBLIC_HEADERS_FROM_SOURCES)
+
 	foreach(hp ${header_paths})
 		# find the root which is closest to the root
 		# error if it's not below any root
@@ -677,6 +678,6 @@ function(acme_get_marked_public_headers_and_destinations target_name headers_out
 endfunction()
 
 function(acme_generate_and_install_config_module target_name)
-	message(FATAL_ERROR todo)
+	message(WARNING todo)
 endfunction()
 

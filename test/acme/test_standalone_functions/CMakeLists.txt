@@ -142,56 +142,56 @@ set(ff
 list(SORT ff)
 assert_listequal(f ${ff})
 
-create_package_name_candidates_from_header_path("a" p)
+acme_create_package_name_candidates_from_header_path("a" p)
 assert_empty_or_undefined(p)
 
-create_package_name_candidates_from_header_path("a.b" p)
+acme_create_package_name_candidates_from_header_path("a.b" p)
 assert_empty_or_undefined(p)
 
-create_package_name_candidates_from_header_path("a./b" p)
+acme_create_package_name_candidates_from_header_path("a./b" p)
 assert_empty_or_undefined(p)
 
-create_package_name_candidates_from_header_path("a./b" p)
+acme_create_package_name_candidates_from_header_path("a./b" p)
 assert_empty_or_undefined(p)
 
-create_package_name_candidates_from_header_path("a/b.h" p)
+acme_create_package_name_candidates_from_header_path("a/b.h" p)
 assert_listequal(p a)
 
-create_package_name_candidates_from_header_path("a/b/c.h" p)
+acme_create_package_name_candidates_from_header_path("a/b/c.h" p)
 assert_listequal(p a a.b)
 
-create_package_name_candidates_from_header_path("a.b/c.h" p)
+acme_create_package_name_candidates_from_header_path("a.b/c.h" p)
 assert_listequal(p a.b)
 
-create_package_name_candidates_from_header_path("a/b/c" p)
+acme_create_package_name_candidates_from_header_path("a/b/c" p)
 assert_listequal(p a a.b)
 
 set(THAT_FOUND 1)
 set(That_FOUND 1)
 set(THAT_LIBRARIES)
 set(That_LIBRARIES 1)
-get_package_prefix(v That)
+acme_get_package_prefix(v That)
 assert_strequal(v That)
 
 set(THAT_FOUND 1)
 set(That_FOUND 1)
 set(THAT_LIBRARIES 1)
 set(That_LIBRARIES)
-get_package_prefix(v That)
+acme_get_package_prefix(v That)
 assert_strequal(v THAT)
 
 set(THAT_FOUND)
 set(That_FOUND 1)
 set(THAT_LIBRARIES)
 set(That_LIBRARIES 1)
-get_package_prefix(v That)
+acme_get_package_prefix(v That)
 assert_strequal(v That)
 
 set(THAT_FOUND 1)
 set(That_FOUND)
 set(THAT_LIBRARIES 1)
 set(That_LIBRARIES)
-get_package_prefix(v That)
+acme_get_package_prefix(v That)
 assert_strequal(v THAT)
 
 message(STATUS "Tests passed.")

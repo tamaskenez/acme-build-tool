@@ -218,7 +218,7 @@ macro(acme_find_package)
 		# create import lib if needed
 		if(NOT _afp_target_name)
 			add_library(IMPORT ${_afp_package_name} UNKNOWN IMPORTED)
-			get_package_prefix(_afp_prefix ${_afp_package_name})
+			acme_get_package_prefix(_afp_prefix ${_afp_package_name})
 			foreach(_afp_i ${${_afp_prefix}_INCLUDE_DIRS} ${${_afp_prefix}_INCLUDE_DIR})
 				set_property(TARGET ${_afp_package_name}
 					APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES
@@ -357,9 +357,6 @@ function(acme_add_include_guards)
 	endforeach()
 endfunction()
 
-acme_target_public_headers(superlib GLOB api/*.h ADD_DIR)
-acme_target_public_headers(superlib GLOB api/*.h ADD_PARENT)
-acme_target_public_headers(superlib FILES a.h b.h c/d.h )
 #     acme_target_public_headers(<target> FILES <file> <file> ...
 #                               [ROOT <root-dir>]
 #                               [ADD_DIR|ADD_PARENT])
@@ -554,7 +551,7 @@ function(acme_install target_name)
 		LIBRARY DESTINATION ${ACME_INSTALL_TARGETS_LIBRARY_DESTINATION})
 
 	# get list of headers and destinations specified with acme_target_public_headers
-	acme_get_listed_public_headers_and_destinations(target_name headers_out destinations_out)
+	acme_get_listed_public_headers_and_destinations(${target_name} headers_out destinations_out)
 	# assert the lengths
 	list(LENGTH headers_out n)
 	list(LENGTH destinations_out m)
@@ -563,7 +560,7 @@ function(acme_install target_name)
 	endif()
 
 	# get lit of headers and destinations marked with //#acme public or /*#acme public*/
-	acme_get_marked_public_headers_and_destinations(target_name headers2_out destinations2_out)
+	acme_get_marked_public_headers_and_destinations(${target_name} headers2_out destinations2_out)
 	# assert the lengths
 	list(LENGTH headers2_out n2)
 	list(LENGTH destinations2_out m2)

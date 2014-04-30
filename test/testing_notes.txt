@@ -1,0 +1,19 @@
+# these functions will be tested during normal usage
+function(acme_add_include_guard_if_needed_core file)
+function(acme_add_include_guard_if_needed file)
+function(acme_source_group)
+
+# need to write tests for these:
+macro(acme_initialize_target _stp_target_name)
+function(acme_find_package_for_header header package_name_var_out prefix_var_out)
+function(acme_process_sources target_name)
+function(acme_get_listed_public_headers_and_destinations target_name headers_out destinations_out)
+function(acme_get_nearest_public_header_relative_dir target_name header_path best_root_out)
+function(acme_get_marked_public_headers_and_destinations target_name headers_out destinations_out)
+macro(acme_initialize _acme_package_name)
+macro(acme_find_package)
+macro(acme_add_executable _aae_name)
+macro(acme_add_library _aal_name)
+function(acme_add_include_guards)
+function(acme_add_public_headers target_name)
+function(acme_install target_name)
