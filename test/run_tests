@@ -1,5 +1,6 @@
-set -e
+#!/bin/bash
 
+set -e
 
 export ACME_ROOT_ACTUAL=$(cd $(dirname $0)/..; echo $PWD)
 export ACME_ROOT=$ACME_ROOT_ACTUAL

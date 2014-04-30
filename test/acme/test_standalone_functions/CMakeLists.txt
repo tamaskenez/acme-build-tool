@@ -173,12 +173,20 @@ set(That_LIBRARIES 1)
 acme_get_package_prefix(v That)
 assert_strequal(v That)
 
+acme_find_package_for_header("That/h1.h" pkg prefix)
+assert_strequal(pkg That)
+assert_strequal(prefix That)
+
 set(THAT_FOUND 1)
 set(That_FOUND 1)
 set(THAT_LIBRARIES 1)
 set(That_LIBRARIES)
 acme_get_package_prefix(v That)
 assert_strequal(v THAT)
+
+acme_find_package_for_header("That/h1.h" pkg prefix)
+assert_strequal(pkg That)
+assert_strequal(prefix THAT)
 
 set(THAT_FOUND)
 set(That_FOUND 1)
@@ -193,5 +201,27 @@ set(THAT_LIBRARIES 1)
 set(That_LIBRARIES)
 acme_get_package_prefix(v That)
 assert_strequal(v THAT)
+
+
+set(a.b.c_FOUND 1)
+acme_find_package_for_header("a.b.c/h.h" pkg prefix)
+assert_strequal(pkg a.b.c)
+assert_strequal(prefix a.b.c)
+
+acme_find_package_for_header("a.b.c/d/h.h" pkg prefix)
+assert_strequal(pkg a.b.c)
+assert_strequal(prefix a.b.c)
+
+acme_find_package_for_header("a/b/c/d/h.h" pkg prefix)
+assert_strequal(pkg a.b.c)
+assert_strequal(prefix a.b.c)
+
+acme_find_package_for_header("a/b/c/h.h" pkg prefix)
+assert_strequal(pkg a.b.c)
+assert_strequal(prefix a.b.c)
+
+acme_find_package_for_header("a/b/h.h" pkg prefix)
+assert_empty_or_undefined(pkg)
+assert_empty_or_undefined(prefix)
 
 message(STATUS "Tests passed.")

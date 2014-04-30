@@ -314,7 +314,7 @@ function(acme_find_package_for_header header package_name_var_out prefix_var_out
 	set(${package_name_var_out} PARENT_SCOPE)
 	set(${prefix_var_out} PARENT_SCOPE)
 
-	acme_create_package_name_candidates_from_header_path(header package_names)
+	acme_create_package_name_candidates_from_header_path(${header} package_names)
 	if(NOT package_names)
 		return()
 	endif()
@@ -328,14 +328,12 @@ function(acme_find_package_for_header header package_name_var_out prefix_var_out
 		else()
 			string(TOUPPER ${package_name} package_name_upper)
 			unset(prefix)
-			if(${package_name_upper}_FOUND)
-				set(prefix ${package_name_upper})
-			elseif(${package_name}_FOUND)
-				set(prefix ${package_name})
+			if(${package_name}_FOUND OR ${package_name_upper}_FOUND)
+				acme_get_package_prefix(prefix ${package_name})
+				set(${package_name_var_out} ${package_name} PARENT_SCOPE)
+				set(${prefix_var_out} ${prefix} PARENT_SCOPE)
+				return()
 			endif()
-			set(${package_name_var_out} ${package_name} PARENT_SCOPE)
-			set(${prefix_var_out} ${prefix} PARENT_SCOPE)
-			return()
 		endif()
 	endforeach() # for each header path component
 endfunction()
@@ -537,7 +535,7 @@ endfunction()
 
 # acme_get_package_prefix(<var-out> <package-name>)
 # Packages (find and config modules) may prefix their
-# variables with original-case and mixed-case package names
+# variables with original(mixed)-case and upper-case package names
 # This macro finds out which one is the correct. Fails
 # if inconsistency found.
 # Uses an elaborate heuristics.
