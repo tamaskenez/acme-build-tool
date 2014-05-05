@@ -657,3 +657,26 @@ function(acme_generate_and_install_config_module target_name)
 	message(WARNING todo)
 endfunction()
 
+#     acme_find_package_args_suppress_required out_var <arg1> <arg2> ...
+# <arg1> ... are args of a find_package call
+# This function removes the REQUIRED keyword and adds COMPONENTS if needed
+function(acme_find_package_args_suppress_required out_var)
+	unset(v)
+	foreach(i ${ARGN})
+		# replace REQUIRED with COMPONENTS
+		if("${i}" STREQUAL REQUIRED)
+			set(i COMPONENTS)
+		endif()
+		# replace COMPONENTS with "" if it's already in the list
+		if("${i}" STREQUAL COMPONENTS)
+			list(FIND v COMPONENTS idx)
+			if(NOT idx EQUAL -1)
+				unset(i)
+			endif()
+		endif()
+		if(NOT "${i}" STREQUAL "")
+			list(APPEND v ${i})
+		endif()
+	endforeach()
+	set(${out_var} ${v} PARENT_SCOPE)
+endfunction()

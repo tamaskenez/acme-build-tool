@@ -49,6 +49,7 @@ macro(acme_initialize _acme_package_name)
 	endif()
 
 	message(STATUS "ACME package name: ${ACME_PACKAGE_NAME}")
+	message(STATUS "Install include dir: ${ACME_PACKAGE_INCLUDE_DIR}")
 endmacro()
 
 #    acme_find_package(<package-name> <other-usual-find-package-args>

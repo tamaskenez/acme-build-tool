@@ -23,10 +23,9 @@ function(acme_source_group)
 # same as acme_get_nearest_public_header_relative_dir but returns the entire list
 
 # need to write tests for these:
-macro(acme_initialize _acme_package_name)
 macro(acme_find_package)
 macro(acme_add_executable _aae_name)
 macro(acme_add_library _aal_name)
 function(acme_add_include_guards)
-function(acme_add_public_headers target_name)
+function(acme_target_public_headers target_name)
 function(acme_install target_name)
