@@ -24,8 +24,12 @@ function(acme_source_group)
 
 # need to write tests for these:
 macro(acme_find_package)
+	NAMESPACE, ALIAS, PUBLIC, PRIVATE
+	namespace: dot and ::
+	alias: id and .
+	target or not
+
 macro(acme_add_executable _aae_name)
 macro(acme_add_library _aal_name)
-function(acme_add_include_guards)
 function(acme_target_public_headers target_name)
 function(acme_install target_name)

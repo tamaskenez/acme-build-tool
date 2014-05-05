@@ -625,7 +625,7 @@ function(acme_get_nearest_public_header_relative_dir target_name header_path bes
 		string(FIND "${header_path}" "${bd}" idx)
 		if(idx EQUAL 0)
 			# inside this, store relative path if it's the best
-			file(RELATIVE_PATH this_relative "${bd}" "${i}")
+			file(RELATIVE_PATH this_relative "${bd}" "${header_path}")
 			string(LENGTH ${this_relative} this_relative_length)
 			if(NOT DEFINED best_relative OR this_relative_length LESS best_relative_length)
 				set(best_relative "${this_relative}")
