@@ -35,7 +35,7 @@ target_link_libraries(${ACME_PACKAGE_NAME} ${ACME_FIND_PACKAGE_SCOPED_TARGETS})
 # - installs target, interface and config module
 acme_install(${ACME_PACKAGE_NAME})
 
-# For this macro you can also specify exclude patterns after EXCLUDE:
+# For this macro you can also specify exclude patterns:
 # acme_add_include_guards(<patterns> EXCLUDE <patterns>) 
 acme_add_include_guards(*.h *.hpp *.hxx)
 

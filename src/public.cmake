@@ -160,6 +160,7 @@ macro(acme_find_package)
 	if(NOT _afp_target_name)
 		find_package(${_afp_args_filtered})
 		if(${_afp_package_name}_FOUND OR ${_afp_package_name_upper}_FOUND)
+			# may have set up an import target
 			get_target_property(_afp_target_name ${_afp_package_name} NAME)
 		endif()
 	endif()
@@ -181,23 +182,7 @@ macro(acme_find_package)
 		# to do a find_package() without fatal errors
 		# and quietly so replace REQUIRED and add COMPONENTS
 		# if needed
-		unset(_afp_args_config)
-		foreach(_afp_i ${_afp_args_filtered})
-			# replace REQUIRED with COMPONENTS
-			if("${_afp_i}" STREQUAL REQUIRED)
-				set(_afp_i COMPONENTS)
-			endif()
-			# replace COMPONENTS with "" if it's already in the list
-			if("${_afp_i}" STREQUAL COMPONENTS)
-				list(FIND _afp_args_config COMPONENTS _afp_i2)
-				if(NOT _afp_i2 EQUAL -1)
-					unset(_afp_i)
-				endif()
-			endif()
-			if(NOT "${_afp_i}" STREQUAL "")
-				list(APPEND _afp_args_config ${_afp_i})
-			endif()
-		endforeach()
+		acme_find_package_args_suppress_required(_afp_args_config ${_afp_args_filtered})
 
 		# add new namespace alias
 		if(_AFP_ALIAS)
