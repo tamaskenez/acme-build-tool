@@ -654,7 +654,52 @@ function(acme_get_marked_public_headers_and_destinations target_name headers_out
 endfunction()
 
 function(acme_generate_and_install_config_module target_name)
-	message(WARNING todo)
+	unset(ACME_CONFIG_MODULE_FIND_PACKAGE_ARGS) # list of set(ACME_FIND_PACKAGE_<name>_ARGS ...) commands
+	unset(ACME_DEPENDENT_PACKAGES_PUBLIC)
+	unset(ACME_DEPENDENT_PACKAGES_PRIVATE)
+	#unset(_runtime_library_name_Release)
+	#unset(_runtime_library_)
+
+	set(PREFIX ${target_name})
+
+	get_target_property(target_type ${target_name} TYPE)
+	if(target_type MATCHES "^(SHARED_LIBRARY|MODULE_LIBRARY)$")
+		set(_shared 1)
+	else()
+		set(_shared 0)
+	endif()
+	#if(_shared)
+	#	get_target_property(v ${target_name} LOCATION_Release)
+	#	get_target_property(vd ${target_name} LOCATION_Debug)
+	#	if(v)
+	#		get_filename_component(j ${v} NAME)
+	#		set(APPEND _runtime_library ${j})
+	#	endif()
+	#	if(vd)
+	#		get_filename_component(j ${vd} NAME)
+	#		set(APPEND _runtime_library_d ${j})
+	#	endif()
+	#endif()
+	foreach(i ${ACME_FIND_PACKAGE_NAMES})
+		set(s ${ACME_FIND_PACKAGE_${i}_SCOPE})
+		if("${s}" STREQUAL "")
+			set(s PRIVATE)
+		endif()
+		if(NOT s STREQUAL PRIVATE AND NOT s STREQUAL PUBLIC)
+			message(FATAL_ERROR "find_package scope must be PUBLIC or PRIVATE")
+		endif()
+		list(APPEND ACME_DEPENDENT_PACKAGES_${s} ${i})
+		set(ACME_CONFIG_MODULE_FIND_PACKAGE_ARGS "${ACME_CONFIG_MODULE_FIND_PACKAGE_ARGS}\nset(${PREFIX}_FIND_PACKAGE_${i}_ARGS ${ACME_FIND_PACKAGE_${i}_ARGS})")
+	endforeach()
+
+	# the next line makes, for example "cmake" -> "../"
+	file(RELATIVE_PATH ACME_INSTALL_PREFIX_FROM_CONFIG_MODULE /tmp/${ACME_CONFIG_MODULE_DESTINATION} /tmp)
+
+	configure_file(${ACME_DIR}/src/templateConfig.cmake ${PREFIX}Config.cmake.in @ONLY)
+	install(
+		FILES ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}Config.cmake.in
+		DESTINATION ${ACME_CONFIG_MODULE_DESTINATION}
+		RENAME ${PREFIX}Config.cmake)
 endfunction()
 
 #     acme_find_package_args_suppress_required out_var <arg1> <arg2> ...

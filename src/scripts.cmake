@@ -93,52 +93,6 @@ endfunction()
 		endif()
 	endmacro()
 
-	macro(acme_install_config_module)
-		unset(ACME_CONFIG_MODULE_FIND_PACKAGE_ARGS)
-		unset(ACME_DEPENDENT_PACKAGES_PUBLIC)
-		unset(ACME_DEPENDENT_PACKAGES_PRIVATE)
-		set(_name ${ACME_PACKAGE_NAME})
-		if(ACME_TARGET_TYPE STREQUAL SHARED
-			OR ACME_TARGET_TYPE STREQUAL MODULE)
-		)
-			set(_shared 1)
-			get_target_property(v ${ACME_TARGET_NAME} LOCATION_Release)
-			get_target_property(vd ${ACME_TARGET_NAME} LOCATION_Debug)
-			unset(_runtime_library)
-			unset(_runtime_library_d)
-			if(v)
-				get_filename_component(j ${v} NAME)
-				set(APPEND _runtime_library ${j})
-			endif()
-			if(vd)
-				get_filename_component(j ${vd} NAME)
-				set(APPEND _runtime_library_d ${j})
-			endif()
-		else()
-			set(_shared 0)
-		endif()
-		foreach(i ${ACME_FIND_PACKAGE_NAMES})
-			set(s ${ACME_FIND_PACKAGE_${i}_SCOPE})
-			if("${s}" STREQUAL "")
-				set(s PRIVATE)
-			endif()
-			if(NOT s STREQUAL PRIVATE AND NOT s STREQUAL PUBLIC)
-				message(FATAL_ERROR "find_package scope must be PUBLIC or PRIVATE")
-			endif()
-			list(APPEND ACME_DEPENDENT_PACKAGES_${s} ${i})
-			set(ACME_CONFIG_MODULE_FIND_PACKAGE_ARGS "${ACME_CONFIG_MODULE_FIND_PACKAGE_ARGS}\nset(${_name}_FIND_PACKAGE_${i}_ARGS ${ACME_FIND_PACKAGE_${i}_ARGS})")
-		endforeach()
-
-		# the next line makes, for example "cmake" -> "../"
-		file(RELATIVE_PATH ACME_INSTALL_PREFIX_FROM_CONFIG_MODULE /tmp/${ACME_CONFIG_MODULE_DESTINATION} /tmp)
-
-		configure_file(${ACME_DIR}/src/templateConfig.cmake ${_name}Config.cmake.in @ONLY)
-		install(
-			FILES ${CMAKE_CURRENT_BINARY_DIR}/${_name}Config.cmake.in
-			DESTINATION ${ACME_CONFIG_MODULE_DESTINATION}
-			RENAME ${_name}Config.cmake)
-	endmacro()
-
 	# remove duplicates from a libraries listing
 	# handles debug/optimized/general keywords
 	function(acme_remove_duplicate_libraries _list_var)
