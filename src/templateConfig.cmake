@@ -19,61 +19,74 @@ unset(_errmsg)
 
 while(1) # not real while, just scope for break()
 
-	if(@ACME_IS_LIBRARY@)
+	if(NOT "@_ACME_TARGET_TYPE@" MATCHES "^EXECUTABLE$")
 		set(@PREFIX@_INCLUDE_DIRS ${@PREFIX@_INSTALL_PREFIX}/include)
 		if(NOT IS_DIRECTORY ${@PREFIX@_INCLUDE_DIRS})
 			set(_errmsg "Include dir: '${@PREFIX@_INCLUDE_DIRS}' not found")
 			break()
 		endif()
 
-		find_library(@PREFIX@_LIBRARY @ACME_TARGET_NAME@ PATHS ${@PREFIX@_INSTALL_PREFIX}/lib NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
+		find_library(@PREFIX@_LIBRARY_O @ACME_TARGET_NAME@ PATHS ${@PREFIX@_INSTALL_PREFIX}/lib NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
 		find_library(@PREFIX@_LIBRARY_D @ACME_TARGET_NAME@@ACME_DEBUG_POSTFIX@ PATHS ${@PREFIX@_INSTALL_PREFIX}/lib NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
-		mark_as_advanced(@PREFIX@_LIBRARY)
+		mark_as_advanced(@PREFIX@_LIBRARY_O)
 		mark_as_advanced(@PREFIX@_LIBRARY_D)
 
-		if(NOT @PREFIX@_LIBRARY)
-			set(_errmsg "Library '@ACME_TARGET_NAME@' not found in path '${@PREFIX@_INSTALL_PREFIX}/lib'")
-			break()
-		endif()
-
-		if(WIN32 AND NOT @PREFIX@_LIBRARY_D)
-			message(WARNING "Debug library not found, on win32 this may cause problems because of the different runtime libraries.")
-		endif()
-
-		if(@PREFIX@_LIBRARY_D)
-			list(APPEND @PREFIX@_LIBRARIES
-				debug ${@PREFIX@_LIBRARY_D}
-				optimized ${@PREFIX@_LIBRARY}
-			)
+		if(@PREFIX@_LIBRARY_O)
+			if(@PREFIX@_LIBRARY_D)
+				list(APPEND @PREFIX@_LIBRARIES
+					debug ${@PREFIX@_LIBRARY_D}
+					optimized ${@PREFIX@_LIBRARY_O}
+				)
+			else()
+				if(WIN32)
+					list(APPEND @PREFIX@_LIBRARIES
+						optimized ${@PREFIX@_LIBRARY_O}
+						debug @PREFIX@_DEBUG_LIBRARY_NOT_FOUND
+					)
+				else()
+					list(APPEND @PREFIX@_LIBRARIES
+						${@PREFIX@_LIBRARY_O}
+					)
+				endif()
+			endif()
 		else()
-			list(APPEND @PREFIX@_LIBRARIES
-				${@PREFIX@_LIBRARY}
-			)
+			if(@PREFIX@_LIBRARY_D)
+				list(APPEND @PREFIX@_LIBRARIES
+					debug ${@PREFIX@_LIBRARY_D}
+					optimized @PREFIX@_OPTIMIZED_LIBRARY_NOT_FOUND
+				)
+			else()
+				set(_errmsg "Library '@ACME_TARGET_NAME@' not found in path '${@PREFIX@_INSTALL_PREFIX}/lib'")
+				break()
+			endif()
 		endif()
 
 		# collect runtime library components
 		if(@_shared@)
-			unset(@PREFIX@_RUNTIME_LIBRARY)
-			unset(@PREFIX@_RUNTIME_LIBRARY_DIR)
+			unset(@PREFIX@_RUNTIME_LIBRARY_O)
+			unset(@PREFIX@_RUNTIME_LIBRARY_DIR_O)
 			unset(@PREFIX@_RUNTIME_LIBRARY_D)
 			unset(@PREFIX@_RUNTIME_LIBRARY_DIR_D)
 			# search paths
-			set(_ds ${@PREFIX@_INSTALL_PREFIX}/lib ${@PREFIX@_INSTALL_PREFIX}/bin)
-			if(NOT "@_runtime_library@" STREQUAL "")
+			set(_ds
+				${@PREFIX@_INSTALL_PREFIX}/@ACME_INSTALL_TARGETS_RUNTIME_DESTINATION@
+				${@PREFIX@_INSTALL_PREFIX}/@ACME_INSTALL_TARGETS_LIBRARY_DESTINATION@
+				)
+			if(@PREFIX@_LIBRARY_O AND @_runtime_library_r@)
 				foreach(_i ${_ds})
-					set(_p "${_i}/@_runtime_library@")
+					set(_p "${_i}/@_runtime_library_r@")
 					if(EXISTS ${_p})
-						set(@PREFIX@_RUNTIME_LIBRARY ${_p})
-						set(@PREFIX@_RUNTIME_LIBRARY_DIR ${_i})
+						set(@PREFIX@_RUNTIME_LIBRARY_O ${_p})
+						set(@PREFIX@_RUNTIME_LIBRARY_DIR_O ${_i})
 						break()
 					endif()
 				endforeach()
-				if(NOT @PREFIX@_RUNTIME_LIBRARY OR NOT @PREFIX@_RUNTIME_LIBRARY_DIR)
-					set(_errmsg "Runtime component '@_runtime_library@' not found in paths ${_ds}")
+				if(NOT @PREFIX@_RUNTIME_LIBRARY_O OR NOT @PREFIX@_RUNTIME_LIBRARY_DIR_O)
+					set(_errmsg "Runtime component '@_runtime_library_r@' not found in paths: ${_ds}")
 					break()
 				endif()
 			endif()
-			if(@PREFIX@_LIBRARY_D AND NOT "@_runtime_library_d@" STREQUAL "")
+			if(@PREFIX@_LIBRARY_D AND @_runtime_library_d@)
 				foreach(_i ${_ds})
 					set(_p "${_i}/@_runtime_library_d@")
 					if(EXISTS ${_p})
@@ -87,13 +100,13 @@ while(1) # not real while, just scope for break()
 					break()
 				endif()
 			endif()
-			set(@PREFIX@_RUNTIME_LIBRARIES ${@PREFIX@_RUNTIME_LIBRARY} ${@PREFIX@_RUNTIME_LIBRARY_D})
-			set(@PREFIX@_RUNTIME_LIBRARY_DIRS ${@PREFIX@_RUNTIME_LIBRARY_DIR} ${@PREFIX@_RUNTIME_LIBRARY_DIR_D})
+			set(@PREFIX@_RUNTIME_LIBRARIES ${@PREFIX@_RUNTIME_LIBRARY_O} ${@PREFIX@_RUNTIME_LIBRARY_D})
+			set(@PREFIX@_RUNTIME_LIBRARY_DIRS ${@PREFIX@_RUNTIME_LIBRARY_DIR_O} ${@PREFIX@_RUNTIME_LIBRARY_DIR_D})
 		endif()
 	else()
-		find_program(@PREFIX@_EXECUTABLE @ACME_TARGET_NAME@ PATHS ${@PREFIX@_INSTALL_PREFIX}/bin NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
+		find_program(@PREFIX@_EXECUTABLE @ACME_TARGET_NAME@ PATHS ${@PREFIX@_INSTALL_PREFIX}/@ACME_INSTALL_TARGETS_RUNTIME_DESTINATION@ NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
 		if(NOT @PREFIX@_EXECUTABLE)
-			set(_errmsg "Program '@ACME_TARGET_NAME@' not found in path '${@PREFIX@_INSTALL_PREFIX}/bin'")
+			set(_errmsg "Program '@ACME_TARGET_NAME@' not found in path '${@PREFIX@_INSTALL_PREFIX}/@ACME_INSTALL_TARGETS_RUNTIME_DESTINATION@'")
 			break()
 		endif()
 	endif()
