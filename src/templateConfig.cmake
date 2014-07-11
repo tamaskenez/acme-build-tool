@@ -111,6 +111,10 @@ while(1) # not real while, just scope for break()
 		endif()
 	endif()
 
+	set(@PREFIX@_DEPENDENT_PACKAGES ${@PREFIX@_DEPENDENT_PACKAGES_PUBLIC})
+	if(NOT @_shared@)
+		set(@PREFIX@_DEPENDENT_PACKAGES ${@PREFIX@_DEPENDENT_PACKAGES_PUBLIC})
+	end
 	foreach(i ${@PREFIX@_DEPENDENT_PACKAGES_PUBLIC} ${@PREFIX@_DEPENDENT_PACKAGES_PRIVATE})
 		find_package(${@PREFIX@_FIND_PACKAGE_${i}_ARGS} QUIET)
 		if(NOT ${i}_FOUND)
